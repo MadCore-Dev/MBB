@@ -568,19 +568,39 @@
                 </div>
                 <div
                     class="bg-primary-50/50 dark:bg-primary-900/10 p-4 md:p-5 rounded-2xl border border-primary-100 dark:border-primary-900/30">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end mb-4">
-                        <div class="md:col-span-2"><label
-                                class="block text-[10px] font-bold text-primary-800 dark:text-primary-300 uppercase mb-1">Work
-                                Done</label><input type="text" id="we-work" list="work-history-list"
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end mb-4">
+                        <div class="md:col-span-2">
+                            <div class="flex justify-between items-center mb-1 px-1">
+                                <label
+                                    class="block text-[10px] font-bold text-primary-800 dark:text-primary-300 uppercase">Work
+                                    Done</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" id="we-qty-toggle"
+                                        class="w-3.5 h-3.5 text-primary-600 rounded cursor-pointer"
+                                        onchange="toggleWeQty()">
+                                    <span
+                                        class="text-[9px] font-bold text-primary-800 dark:text-primary-300 uppercase">Add
+                                        Qty</span>
+                                </label>
+                            </div>
+                            <input type="text" id="we-work" list="work-history-list"
                                 class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
                         </div>
-                        <div><label
+                        <div id="we-qty-container" class="hidden">
+                            <label
+                                class="block text-[10px] font-bold text-primary-800 dark:text-primary-300 uppercase mb-1">Qty</label>
+                            <input type="number" id="we-qty" value="1" min="1"
+                                class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                        <div id="we-cost-container" class="md:col-span-2 transition-all">
+                            <label id="we-cost-label"
                                 class="block text-[10px] font-bold text-primary-800 dark:text-primary-300 uppercase mb-1">Cost
-                                (₹)</label><input type="number" id="we-cost" placeholder="0"
+                                (₹)</label>
+                            <input type="number" id="we-cost" placeholder="0"
                                 class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
                         </div>
-                        <button onclick="addWorkSubItem()"
-                            class="bg-primary-600 hover:bg-primary-700 text-white font-bold p-3 rounded-xl transition-colors">Add
+                        <button onclick="addWorkSubItem()" id="we-add-btn"
+                            class="bg-primary-600 hover:bg-primary-700 text-white font-bold p-3 rounded-xl transition-colors md:col-span-1">Add
                             Item</button>
                     </div>
                     <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
@@ -646,19 +666,39 @@
                 </div>
                 <div
                     class="bg-indigo-50/50 dark:bg-indigo-900/10 p-4 md:p-5 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end mb-4">
-                        <div class="md:col-span-2"><label
-                                class="block text-[10px] font-bold text-indigo-800 dark:text-indigo-300 uppercase mb-1">Description</label><input
-                                type="text" id="quote-item-desc"
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end mb-4">
+                        <div class="md:col-span-2">
+                            <div class="flex justify-between items-center mb-1 px-1">
+                                <label
+                                    class="block text-[10px] font-bold text-indigo-800 dark:text-indigo-300 uppercase">Description</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" id="quote-qty-toggle"
+                                        class="w-3.5 h-3.5 text-indigo-600 rounded cursor-pointer"
+                                        onchange="toggleQuoteQty()">
+                                    <span
+                                        class="text-[9px] font-bold text-indigo-800 dark:text-indigo-300 uppercase">Add
+                                        Qty</span>
+                                </label>
+                            </div>
+                            <input type="text" id="quote-item-desc"
                                 class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
                         </div>
-                        <div><label
+                        <div id="quote-qty-container" class="hidden">
+                            <label
+                                class="block text-[10px] font-bold text-indigo-800 dark:text-indigo-300 uppercase mb-1">Qty</label>
+                            <input type="number" id="quote-qty" value="1" min="1"
+                                class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div id="quote-cost-container" class="md:col-span-2 transition-all">
+                            <label id="quote-cost-label"
                                 class="block text-[10px] font-bold text-indigo-800 dark:text-indigo-300 uppercase mb-1">Est.
-                                Cost</label><input type="number" id="quote-item-cost"
+                                Cost
+                                (₹)</label>
+                            <input type="number" id="quote-item-cost" placeholder="0"
                                 class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
                         </div>
-                        <button onclick="addQuoteItem()"
-                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-3 rounded-xl transition-colors">Add
+                        <button onclick="addQuoteItem()" id="quote-add-btn"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-3 rounded-xl transition-colors md:col-span-1">Add
                             Item</button>
                     </div>
                     <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">

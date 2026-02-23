@@ -8,6 +8,40 @@ function refreshUI() {
     renderClients();
 }
 
+function toggleWeQty() {
+    const toggle = document.getElementById('we-qty-toggle');
+    const qtyCont = document.getElementById('we-qty-container');
+    const costCont = document.getElementById('we-cost-container');
+    const costLabel = document.getElementById('we-cost-label');
+
+    if (toggle.checked) {
+        qtyCont.classList.remove('hidden');
+        costCont.classList.remove('md:col-span-2'); // Shrink cost to make room for Qty
+        costLabel.innerText = 'Cost / Item (₹)';
+    } else {
+        qtyCont.classList.add('hidden');
+        costCont.classList.add('md:col-span-2'); // Expand cost to fill the grid
+        costLabel.innerText = 'Cost (₹)';
+    }
+}
+
+function toggleQuoteQty() {
+    const toggle = document.getElementById('quote-qty-toggle');
+    const qtyCont = document.getElementById('quote-qty-container');
+    const costCont = document.getElementById('quote-cost-container');
+    const costLabel = document.getElementById('quote-cost-label');
+
+    if (toggle.checked) {
+        qtyCont.classList.remove('hidden');
+        costCont.classList.remove('md:col-span-2');
+        costLabel.innerText = 'Cost / Item (₹)';
+    } else {
+        qtyCont.classList.add('hidden');
+        costCont.classList.add('md:col-span-2');
+        costLabel.innerText = 'Est. Cost (₹)';
+    }
+}
+
 // --- DETAILS POPUP ---
 function showDetails(type, id) {
     const modalBody = document.getElementById('modal-details-body');
@@ -185,7 +219,11 @@ function populateDatalists() {
     const workHistory = document.getElementById('work-history-list');
     if (workHistory) {
         let uniqueWorks = new Set();
-        appDB.work_entries.forEach(w => w.items.forEach(it => uniqueWorks.add(it.workDone)));
+        appDB.work_entries.forEach(w => w.items.forEach(it => {
+            // Strip the # and everything after it to prevent duplicate suggestions
+            const cleanDesc = it.workDone.split('#')[0].trim();
+            uniqueWorks.add(cleanDesc);
+        }));
         workHistory.innerHTML = Array.from(uniqueWorks).map(w => `<option value="${w}">`).join('');
     }
 }
@@ -212,18 +250,35 @@ function openWorkEntryModal() {
     document.getElementById('modal-we-title').innerText = "Add Vehicle Entry";
     document.getElementById('we-client').value = '';
     document.getElementById('we-vehicle').value = '';
+    // Reset the Qty toggle safely
+    const toggle = document.getElementById('we-qty-toggle');
+    if (toggle) { toggle.checked = false; toggleWeQty(); }
     draftWorkItems = [];
     renderWEItemsTable();
     openModal('modal-we');
 }
 
 function addWorkSubItem() {
-    const desc = document.getElementById('we-work').value;
-    const cost = parseFloat(document.getElementById('we-cost').value);
+    let desc = document.getElementById('we-work').value;
+    let cost = parseFloat(document.getElementById('we-cost').value);
+    const toggle = document.getElementById('we-qty-toggle');
+
     if (!desc || isNaN(cost)) return;
+
+    if (toggle && toggle.checked) {
+        const qty = parseInt(document.getElementById('we-qty').value) || 1;
+        if (qty > 1) {
+            desc = `${desc} #${qty}`;
+            cost = cost * qty;
+        }
+    }
+
     draftWorkItems.push({ workDone: desc.toUpperCase(), cost: cost });
+
     document.getElementById('we-work').value = '';
     document.getElementById('we-cost').value = '';
+    if (toggle && toggle.checked) document.getElementById('we-qty').value = '1';
+
     renderWEItemsTable();
 }
 
@@ -508,18 +563,37 @@ function openQuoteModal() {
     document.getElementById('quote-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('quote-client').value = '';
     document.getElementById('quote-vehicle').value = '';
+
+    // Reset the Qty toggle
+    const toggle = document.getElementById('quote-qty-toggle');
+    if (toggle) { toggle.checked = false; toggleQuoteQty(); }
+
     renderQuoteDraftTable();
     openModal('modal-quote');
 }
 
 function addQuoteItem() {
-    const desc = document.getElementById('quote-item-desc').value;
-    const cost = parseFloat(document.getElementById('quote-item-cost').value);
+    let desc = document.getElementById('quote-item-desc').value;
+    let cost = parseFloat(document.getElementById('quote-item-cost').value);
     const vehicle = document.getElementById('quote-vehicle').value.toUpperCase();
+    const toggle = document.getElementById('quote-qty-toggle');
+
     if (!desc || isNaN(cost)) return;
+
+    if (toggle && toggle.checked) {
+        const qty = parseInt(document.getElementById('quote-qty').value) || 1;
+        if (qty > 1) {
+            desc = `${desc} #${qty}`;
+            cost = cost * qty;
+        }
+    }
+
     draftQuoteItems.push({ vehicle, workDone: desc.toUpperCase(), cost });
+
     document.getElementById('quote-item-desc').value = '';
     document.getElementById('quote-item-cost').value = '';
+    if (toggle && toggle.checked) document.getElementById('quote-qty').value = '1';
+
     renderQuoteDraftTable();
 }
 
@@ -835,6 +909,8 @@ function archiveClient(id) {
 
 // Global exports
 window.refreshUI = refreshUI;
+window.toggleWeQty = toggleWeQty;
+window.toggleQuoteQty = toggleQuoteQty;
 window.showDetails = showDetails;
 window.populateDatalists = populateDatalists;
 window.getClientIdByName = getClientIdByName;
