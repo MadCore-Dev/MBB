@@ -1,4 +1,4 @@
-[
+const INITIAL_CLIENTS =[
   {
     "shortName": "Mangala Body Builders",
     "printName": "MANGALA BODY BUILDERS",

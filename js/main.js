@@ -1,11 +1,11 @@
 // --- MAIN UI REFRESH ---
-function refreshUI() { 
-    populateDatalists(); 
-    renderWorkEntriesList(); 
-    renderInvoices(); 
-    renderQuotes(); 
-    renderPayments(); 
-    renderClients(); 
+function refreshUI() {
+    populateDatalists();
+    renderWorkEntriesList();
+    renderInvoices();
+    renderQuotes();
+    renderPayments();
+    renderClients();
 }
 
 // --- DETAILS POPUP ---
@@ -16,7 +16,7 @@ function showDetails(type, id) {
     if (!modalBody || !modalTitle || !modalFooter) return;
 
     let html = ''; modalFooter.classList.add('hidden'); modalFooter.innerHTML = '';
-    
+
     if (type === 'WE') {
         const item = appDB.work_entries.find(w => w.entryId === id);
         if (!item) return;
@@ -95,8 +95,8 @@ function showDetails(type, id) {
             <button onclick="deleteInvoice('${item.docId}')" class="text-rose-500 font-bold px-4 py-2 hover:bg-rose-50 rounded-lg ${isLocked ? 'hidden' : ''}">Delete</button>
             <button onclick="reprintDoc('${item.docId}')" class="bg-primary-600 text-white px-6 py-2 rounded-xl">Print / Preview</button>
             ${isLocked
-              ? `<span class="bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-6 py-2 rounded-xl font-bold text-sm cursor-not-allowed">Locked ✓</span>`
-              : `<button onclick="lockInvoice('${item.docId}')" class="bg-slate-800 text-white px-6 py-2 rounded-xl">Lock &amp; Send</button>`
+                ? `<span class="bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-6 py-2 rounded-xl font-bold text-sm cursor-not-allowed">Locked ✓</span>`
+                : `<button onclick="lockInvoice('${item.docId}')" class="bg-slate-800 text-white px-6 py-2 rounded-xl">Lock &amp; Send</button>`
             }
         `;
         modalFooter.classList.remove('hidden');
@@ -161,7 +161,7 @@ function showDetails(type, id) {
         `;
         modalFooter.classList.remove('hidden');
     }
-    
+
     modalBody.innerHTML = html;
     openModal('modal-details');
 }
@@ -181,7 +181,7 @@ function populateDatalists() {
             .filter(c => !c.isArchived)
             .map(c => `<option value="${c.shortName}">`).join('');
     }
-    
+
     const workHistory = document.getElementById('work-history-list');
     if (workHistory) {
         let uniqueWorks = new Set();
@@ -190,19 +190,19 @@ function populateDatalists() {
     }
 }
 
-function getClientIdByName(name) { 
-    const c = appDB.clients.find(c => c.shortName.toLowerCase() === name.toLowerCase()); 
-    return c ? c.clientId : null; 
+function getClientIdByName(name) {
+    const c = appDB.clients.find(c => c.shortName.toLowerCase() === name.toLowerCase());
+    return c ? c.clientId : null;
 }
 
-function getClientById(id) { 
-    return appDB.clients.find(c => c.clientId === id) || { shortName: "Unknown", printName: "Unknown", address: "", gstin: "" }; 
+function getClientById(id) {
+    return appDB.clients.find(c => c.clientId === id) || { shortName: "Unknown", printName: "Unknown", address: "", gstin: "" };
 }
 
-function formatDate(iso) { 
-    if (!iso) return ""; 
-    const d = new Date(iso); 
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); 
+function formatDate(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 // --- TAB 1: WORK ENTRIES ---
@@ -283,7 +283,7 @@ function renderWorkEntriesList() {
         if (clientId && w.clientId !== clientId) return false;
         if (status !== 'ALL' && w.status !== status) return false;
         return true;
-    }).sort((a,b) => b.date.localeCompare(a.date));
+    }).sort((a, b) => b.date.localeCompare(a.date));
 
     const tbody = document.getElementById('we-list-tbody');
     tbody.innerHTML = filtered.map(w => {
@@ -300,7 +300,7 @@ function renderWorkEntriesList() {
             </td>
             <td class="p-4 uppercase font-bold text-primary-600">${w.vehicle}</td>
             <td class="p-4 text-right font-black">₹${w.totalCost}</td>
-            <td class="p-4 text-center" onclick="event.stopPropagation()">${isBilled ? '<span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-bold">BILLED</span>' : '<button onclick="deleteWE(\''+w.entryId+'\')" class="text-slate-300 hover:text-rose-500 transition-colors p-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>'}</td>
+            <td class="p-4 text-center" onclick="event.stopPropagation()">${isBilled ? '<span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-bold">BILLED</span>' : '<button onclick="deleteWE(\'' + w.entryId + '\')" class="text-slate-300 hover:text-rose-500 transition-colors p-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>'}</td>
         </tr>
         <div class="md:hidden bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm" onclick="showDetails('WE', '${w.entryId}')">
             <div class="flex justify-between items-start">
@@ -318,7 +318,7 @@ function renderWorkEntriesList() {
 function editWE(id) {
     const w = appDB.work_entries.find(e => e.entryId === id); if (!w) return;
     if (w.status === 'BILLED') return alert("Billed entry cannot be edited. Delete the related invoice first.");
-    closeAllModals(); 
+    closeAllModals();
     openWorkEntryModal();
     document.getElementById('we-edit-id').value = w.entryId;
     document.getElementById('we-date').value = w.date;
@@ -357,7 +357,7 @@ function updateBulkBillButton() {
 function bulkGenerateBill() {
     const selectedIds = Array.from(document.querySelectorAll('.we-checkbox:checked')).map(el => el.dataset.id);
     const selectedEntries = appDB.work_entries.filter(w => selectedIds.includes(w.entryId));
-    
+
     // Validate same client
     const clientIds = new Set(selectedEntries.map(e => e.clientId));
     if (clientIds.size > 1) return alert("Select entries for the same client");
@@ -374,7 +374,7 @@ function bulkGenerateBill() {
 
     const docId = 'DOC-' + Date.now();
     selectedEntries.forEach(w => w.docId = docId);
-    
+
     appDB.documents.push({
         docId: docId, type: 'INVOICE', docNumber: 'DRAFT',
         clientId: cid, date: new Date().toISOString().split('T')[0], status: 'DRAFT',
@@ -403,7 +403,7 @@ function renderInvoices() {
         if (clientId && d.clientId !== clientId) return false;
         if (status !== 'ALL' && d.status !== status) return false;
         return true;
-    }).sort((a,b) => b.date.localeCompare(a.date));
+    }).sort((a, b) => b.date.localeCompare(a.date));
 
     const tbody = document.getElementById('past-bills-tbody');
     tbody.innerHTML = filtered.map(d => {
@@ -424,7 +424,7 @@ function renderInvoices() {
             </td>
             <td class="p-4"><span class="px-2 py-1 rounded-full text-[10px] font-black ${isLocked ? 'bg-slate-800 text-white' : 'bg-amber-100 text-amber-700'}">${d.status}</span></td>
             <td class="p-4 text-right font-black">₹${Math.round(d.grandTotal)}</td>
-            <td class="p-4 text-center" onclick="event.stopPropagation()">${createKebabMenu('kb-'+d.docId, opt)}</td>
+            <td class="p-4 text-center" onclick="event.stopPropagation()">${createKebabMenu('kb-' + d.docId, opt)}</td>
         </tr>
         <div class="md:hidden bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm" onclick="showDetails('INV', '${d.docId}')">
            <div class="flex justify-between items-start mb-3">
@@ -433,7 +433,7 @@ function renderInvoices() {
            </div>
            <div class="flex justify-between items-center pt-3 border-t">
               <span class="px-2 py-1 rounded-full text-[10px] font-black ${isLocked ? 'bg-slate-800 text-white' : 'bg-amber-100 text-amber-700'}">${d.status}</span>
-              <div onclick="event.stopPropagation()">${createKebabMenu('kbm-'+d.docId, opt)}</div>
+              <div onclick="event.stopPropagation()">${createKebabMenu('kbm-' + d.docId, opt)}</div>
            </div>
         </div>`;
     }).join('');
@@ -442,26 +442,26 @@ function renderInvoices() {
 function lockInvoice(id) {
     const d = appDB.documents.find(doc => doc.docId === id);
     if (!d || d.status === 'LOCKED') return; // One-way: DRAFT → LOCKED only
-    
+
     if (d.docNumber === 'DRAFT') {
         const dDate = new Date(d.date);
         const yy = dDate.getFullYear().toString().slice(-2);
         const mm = (dDate.getMonth() + 1).toString().padStart(2, '0');
         const isTaxable = d.isTaxable !== false;
         const prefix = `${yy}${mm}-${isTaxable ? 'R' : 'M'}`;
-        
+
         // Find existing invoices in this exact sequence
         const existingInThisSeq = appDB.documents
             .filter(doc => doc.type === 'INVOICE' && doc.status === 'LOCKED' && doc.docNumber.startsWith(prefix))
             .map(doc => parseInt(doc.docNumber.replace(prefix, ''), 10))
             .filter(n => !isNaN(n));
-            
+
         const highestSeq = existingInThisSeq.length > 0 ? Math.max(...existingInThisSeq) : 0;
         const nextSeq = (highestSeq + 1).toString().padStart(3, '0');
-        
+
         d.docNumber = prefix + nextSeq;
     }
-    
+
     d.status = 'LOCKED';
     saveDB(); refreshUI(); closeAllModals();
 }
@@ -488,7 +488,7 @@ function setFilter(type, val) {
         btn.className = "pill-btn whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors";
     });
     document.getElementById(`btn-${type}-${val}`).className = "pill-btn whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold bg-primary-600 text-white transition-colors shadow-sm";
-    
+
     if (type === 'we') renderWorkEntriesList();
     if (type === 'inv') renderInvoices();
 }
@@ -541,21 +541,21 @@ function generateQuote() {
     const clientName = document.getElementById('quote-client').value;
     const clientId = getClientIdByName(clientName);
     if (!clientId || draftQuoteItems.length === 0) return alert("Required data missing");
-    
+
     const tax = draftQuoteItems.reduce((acc, it) => acc + it.cost, 0);
     const docData = {
         docId: 'DOC-Q' + Date.now(), type: 'QUOTATION', docNumber: 'EST-' + (5000 + appDB.documents.filter(d => d.type === 'QUOTATION').length),
         clientId, date, lineItems: [...draftQuoteItems], taxable: tax, cgst: 0, sgst: 0, grandTotal: tax
     };
     appDB.documents.push(docData);
-    saveDB(); refreshUI(); closeAllModals(); 
+    saveDB(); refreshUI(); closeAllModals();
     openPrintPreview('QUOTATION', docData);
 }
 
 function convertQuoteToWorkEntry(quoteId) {
     const quote = appDB.documents.find(d => d.docId === quoteId);
     if (!quote || quote.isConverted) return;
-    
+
     // Group line items by vehicle
     const vehicleGroups = {};
     quote.lineItems.forEach(it => {
@@ -563,16 +563,16 @@ function convertQuoteToWorkEntry(quoteId) {
         if (!vehicleGroups[v]) vehicleGroups[v] = [];
         vehicleGroups[v].push({ workDone: it.workDone, cost: it.cost });
     });
-    
+
     let firstNewEntryId = null;
     const dateStr = new Date().toISOString().split('T')[0];
-    
+
     Object.keys(vehicleGroups).forEach((v, index) => {
         const items = vehicleGroups[v];
         const total = items.reduce((sum, i) => sum + i.cost, 0);
         const newEntryId = 'WE-' + Date.now() + '-' + index;
         if (!firstNewEntryId) firstNewEntryId = newEntryId;
-        
+
         appDB.work_entries.push({
             entryId: newEntryId,
             date: dateStr,
@@ -585,10 +585,10 @@ function convertQuoteToWorkEntry(quoteId) {
             linkedQuoteId: quote.docId
         });
     });
-    
+
     quote.isConverted = true;
     quote.linkedEntryId = firstNewEntryId;
-    
+
     saveDB();
     refreshUI();
     closeAllModals();
@@ -597,7 +597,7 @@ function convertQuoteToWorkEntry(quoteId) {
 
 function renderQuotes() {
     const tbody = document.getElementById('past-quotes-tbody');
-    const quotes = appDB.documents.filter(d => d.type === 'QUOTATION').sort((a,b) => b.date.localeCompare(a.date));
+    const quotes = appDB.documents.filter(d => d.type === 'QUOTATION').sort((a, b) => b.date.localeCompare(a.date));
     tbody.innerHTML = quotes.map(q => {
         const c = getClientById(q.clientId);
         const opt = [
@@ -611,7 +611,7 @@ function renderQuotes() {
             <td class="p-4 italic text-xs">${q.lineItems[0] ? q.lineItems[0].vehicle : '--'}</td>
             <td class="p-4 text-center font-bold text-[10px]">${q.isConverted ? 'CONVERTED' : 'PENDING'}</td>
             <td class="p-4 text-right font-black">₹${q.grandTotal}</td>
-            <td class="p-4 text-center" onclick="event.stopPropagation()">${createKebabMenu('kbq-'+q.docId, opt)}</td>
+            <td class="p-4 text-center" onclick="event.stopPropagation()">${createKebabMenu('kbq-' + q.docId, opt)}</td>
         </tr>
         <div class="md:hidden bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm" onclick="showDetails('QUOTE', '${q.docId}')">
            <div class="flex justify-between items-start mb-2">
@@ -620,7 +620,7 @@ function renderQuotes() {
            </div>
            <div class="flex justify-between items-center border-t pt-3">
               <span class="text-[9px] font-bold text-slate-400">${q.lineItems[0] ? q.lineItems[0].vehicle : ''}</span>
-              <div onclick="event.stopPropagation()">${createKebabMenu('kbqm-'+q.docId, opt)}</div>
+              <div onclick="event.stopPropagation()">${createKebabMenu('kbqm-' + q.docId, opt)}</div>
            </div>
         </div>`;
     }).join('');
@@ -640,15 +640,15 @@ function savePayment() {
     const method = document.getElementById('pay-method').value;
     const clientId = getClientIdByName(clientName);
     if (!clientId || isNaN(amount)) return alert("Required data missing");
-    
-    appDB.payments.push({ paymentId: 'PAY-'+Date.now(), date, clientId, amount, method });
+
+    appDB.payments.push({ paymentId: 'PAY-' + Date.now(), date, clientId, amount, method });
     saveDB(); refreshUI();
     document.getElementById('pay-amount').value = '';
 }
 
 function renderPayments() {
     const tbody = document.getElementById('payments-tbody');
-    tbody.innerHTML = appDB.payments.sort((a,b) => b.date.localeCompare(a.date)).map(p => {
+    tbody.innerHTML = appDB.payments.sort((a, b) => b.date.localeCompare(a.date)).map(p => {
         const c = getClientById(p.clientId);
         return `
         <tr class="hidden md:table-row border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 pointer transition-colors" onclick="showDetails('PAY', '${p.paymentId}')">
@@ -672,6 +672,7 @@ function deletePayment(id) {
 }
 
 // --- TAB 5: STATEMENTS ---
+// --- TAB 5: STATEMENTS ---
 function generateStatement() {
     const clientName = document.getElementById('stmt-client').value;
     const fromDate = document.getElementById('stmt-from').value;
@@ -679,40 +680,75 @@ function generateStatement() {
     const clientId = getClientIdByName(clientName);
     if (!clientId) return alert("Select Client");
 
-    const bills = appDB.documents.filter(d => d.type === 'INVOICE' && d.clientId === clientId && d.date >= fromDate && d.date <= toDate);
-    const pays = appDB.payments.filter(p => p.clientId === clientId && p.date >= fromDate && p.date <= toDate);
+    // 1. Calculate Previous Balance (Before fromDate)
+    const pastBills = appDB.documents.filter(d => d.type === 'INVOICE' && d.clientId === clientId && d.date < fromDate);
+    const pastPays = appDB.payments.filter(p => p.clientId === clientId && p.date < fromDate);
 
-    let rows = [];
-    bills.forEach(d => rows.push({ date: d.date, label: 'Tax Invoice', ref: d.docNumber, dr: d.grandTotal, cr: 0 }));
-    pays.forEach(p => rows.push({ date: p.date, label: 'Payment Received', ref: p.method, dr: 0, cr: p.amount }));
-    rows.sort((a, b) => a.date.localeCompare(b.date));
+    const pastBilledTotal = pastBills.reduce((sum, d) => sum + d.grandTotal, 0);
+    const pastPaidTotal = pastPays.reduce((sum, p) => sum + p.amount, 0);
+    const previousBalance = pastBilledTotal - pastPaidTotal;
 
-    let balance = 0;
-    rows.forEach(r => { balance += (r.dr - r.cr); r.bal = balance; });
+    // 2. Fetch Current Period Data
+    const currentBills = appDB.documents.filter(d => d.type === 'INVOICE' && d.clientId === clientId && d.date >= fromDate && d.date <= toDate);
+    const currentPays = appDB.payments.filter(p => p.clientId === clientId && p.date >= fromDate && p.date <= toDate);
 
+    let currentRows = [];
+    currentBills.forEach(d => currentRows.push({ date: d.date, label: 'Tax Invoice', ref: d.docNumber, dr: d.grandTotal, cr: 0 }));
+    currentPays.forEach(p => currentRows.push({ date: p.date, label: 'Payment Received', ref: p.method, dr: 0, cr: p.amount }));
+
+    // Sort current period rows by date
+    currentRows.sort((a, b) => a.date.localeCompare(b.date));
+
+    // 3. Assemble Final Rows and Calculate Running Balance
+    let balance = previousBalance;
+    let finalRows = [];
+
+    // Always push the Brought Forward row first
+    finalRows.push({
+        date: fromDate,
+        label: 'Previous Balance (Brought Forward)',
+        ref: 'B/F',
+        dr: 0,
+        cr: 0,
+        bal: balance,
+        isBf: true // custom flag just in case we want to style it differently
+    });
+
+    // Add current rows and calculate running balance
+    currentRows.forEach(r => {
+        balance += (r.dr - r.cr);
+        r.bal = balance;
+        finalRows.push(r);
+    });
+
+    // 4. Update UI
     document.getElementById('stmt-balance').innerText = balance.toLocaleString('en-IN');
     const tbody = document.getElementById('stmt-tbody');
-    tbody.innerHTML = rows.map(r => `
-    <tr class="hidden md:table-row border-b border-slate-100 dark:border-slate-800">
-        <td class="p-4">${formatDate(r.date)}</td>
-        <td class="p-4"><p class="font-bold">${r.label}</p><p class="text-[10px] text-slate-400">${r.ref}</p></td>
-        <td class="p-4 text-right text-rose-600 font-bold">${r.dr ? '₹'+r.dr : '--'}</td>
-        <td class="p-4 text-right text-emerald-600 font-bold">${r.cr ? '₹'+r.cr : '--'}</td>
-        <td class="p-4 text-right font-black">₹${r.bal}</td>
+
+    tbody.innerHTML = finalRows.map(r => `
+    <tr class="hidden md:table-row border-b border-slate-100 dark:border-slate-800 ${r.isBf ? 'bg-slate-50 dark:bg-slate-800/60' : ''}">
+        <td class="p-4 ${r.isBf ? 'italic text-slate-500' : ''}">${formatDate(r.date)}</td>
+        <td class="p-4"><p class="font-bold ${r.isBf ? 'text-slate-600 dark:text-slate-400' : ''}">${r.label}</p><p class="text-[10px] text-slate-400">${r.ref}</p></td>
+        <td class="p-4 text-right text-rose-600 font-bold">${r.dr ? '₹' + r.dr.toLocaleString('en-IN') : '--'}</td>
+        <td class="p-4 text-right text-emerald-600 font-bold">${r.cr ? '₹' + r.cr.toLocaleString('en-IN') : '--'}</td>
+        <td class="p-4 text-right font-black">₹${r.bal.toLocaleString('en-IN')}</td>
     </tr>
-    <div class="md:hidden bg-slate-50 dark:bg-slate-800 p-4 border-b border-slate-200 dark:border-slate-700">
+    <div class="md:hidden ${r.isBf ? 'bg-slate-100 dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800/30'} p-4 border-b border-slate-200 dark:border-slate-700">
        <div class="flex justify-between items-start mb-2">
           <div><p class="text-[9px] font-bold text-slate-400 mb-1">${formatDate(r.date)} | ${r.label}</p><p class="text-[10px] font-bold italic">${r.ref}</p></div>
-          <p class="font-bold text-xs">Bal: ₹${r.bal}</p>
+          <p class="font-bold text-xs">Bal: ₹${r.bal.toLocaleString('en-IN')}</p>
        </div>
+       ${!r.isBf ? `
        <div class="flex justify-end gap-3 text-xs">
-          ${r.dr ? '<span class="text-rose-600">Dr: ₹'+r.dr+'</span>' : ''}
-          ${r.cr ? '<span class="text-emerald-600">Cr: ₹'+r.cr+'</span>' : ''}
-       </div>
+          ${r.dr ? '<span class="text-rose-600">Dr: ₹' + r.dr.toLocaleString('en-IN') + '</span>' : ''}
+          ${r.cr ? '<span class="text-emerald-600">Cr: ₹' + r.cr.toLocaleString('en-IN') + '</span>' : ''}
+       </div>` : ''}
     </div>`).join('');
-    
+
     document.getElementById('stmt-view-area').classList.remove('hidden');
-    window.printPayload = { type: 'STATEMENT', clientId, from: fromDate, to: toDate, rows, balance };
+
+    // Pass 'finalRows' to the print engine payload
+    window.printPayload = { type: 'STATEMENT', clientId, from: fromDate, to: toDate, rows: finalRows, balance };
 }
 
 // --- TAB 6: CLIENTS ---
@@ -744,7 +780,7 @@ function saveClient() {
 
 function renderClients() {
     const tbody = document.getElementById('clients-tbody');
-    
+
     // Sort active clients first, archived clients last
     const sortedClients = [...appDB.clients].sort((a, b) => {
         if (a.isArchived === b.isArchived) return a.shortName.localeCompare(b.shortName);
@@ -754,7 +790,7 @@ function renderClients() {
     tbody.innerHTML = sortedClients.map(c => {
         const rowOpacity = c.isArchived ? 'opacity-50 grayscale bg-slate-50 dark:bg-slate-900/50' : '';
         const badge = c.isArchived ? '<span class="text-[9px] bg-slate-300 text-slate-700 px-1.5 py-0.5 rounded ml-2 font-bold uppercase tracking-wider">Archived</span>' : '';
-        
+
         return `
     <tr class="hidden md:table-row border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 pointer transition-colors ${rowOpacity}" onclick="showDetails('CLIENT', '${c.clientId}')">
         <td class="p-4 font-bold flex items-center">${c.shortName} ${badge}</td>
@@ -785,11 +821,11 @@ function editClient(id) {
 function archiveClient(id) {
     const c = appDB.clients.find(x => x.clientId === id);
     if (!c) return;
-    
+
     // Toggle archival state
     c.isArchived = !c.isArchived;
     saveDB();
-    
+
     // Refresh modal in place if currently viewing it
     showDetails('CLIENT', id);
     // Refresh background lists
