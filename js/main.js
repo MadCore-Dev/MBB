@@ -138,13 +138,16 @@ function showDetails(type, id) {
         const item = appDB.documents.find(d => d.docId === id);
         if (!item) return;
         const client = getClientById(item.clientId);
+        const isLocked = item.status === 'LOCKED';
         modalTitle.innerText = "Quotation Detail";
+
         html = `
         <div class="space-y-3">
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">EST NO</span><span class="font-bold">${item.docNumber}</span></div>
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">CLIENT</span><span class="font-bold">${client.shortName}</span></div>
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">VEHICLE</span><span class="font-bold uppercase">${item.lineItems[0] ? item.lineItems[0].vehicle : '--'}</span></div>
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">TOTAL</span><span class="font-black">₹${item.grandTotal}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">STATUS</span><span class="px-2 py-0.5 rounded-full text-[10px] font-black ${isLocked ? 'bg-slate-800 text-white' : 'bg-amber-100 text-amber-700'}">${item.status || 'DRAFT'}</span></div>
            ${item.isConverted && (item.linkedEntryId || item.linkedDocId) ? `
              <div class="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl mt-4 border border-emerald-100 dark:border-emerald-800">
                <div>
@@ -155,12 +158,16 @@ function showDetails(type, id) {
              </div>
            ` : ''}
         </div>`;
+
         modalFooter.innerHTML = `
-            <button onclick="deleteQuote('${item.docId}')" class="text-rose-500 font-bold px-4 py-2 hover:bg-rose-50 rounded-lg">Delete</button>
+            ${!isLocked ? `<button onclick="deleteQuote('${item.docId}')" class="text-rose-500 font-bold px-4 py-2 hover:bg-rose-50 rounded-lg">Delete</button>` : ''}
+            <button onclick="duplicateQuote('${item.docId}')" class="text-indigo-600 font-bold px-4 py-2 hover:bg-indigo-50 rounded-lg hidden md:block">Revise/Duplicate</button>
             <button onclick="reprintDoc('${item.docId}')" class="bg-primary-600 text-white px-6 py-2 rounded-xl">Print</button>
-            ${!item.isConverted
-                ? `<button onclick="convertQuoteToWorkEntry('${item.docId}')" class="bg-emerald-600 text-white px-6 py-2 rounded-xl shadow-md">Add to Work Entries</button>`
-                : `<span class="bg-emerald-100 text-emerald-700 font-bold px-6 py-2 rounded-xl flex items-center gap-2"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg> Converted</span>`
+            ${!isLocked
+                ? `<button onclick="lockQuote('${item.docId}')" class="bg-slate-800 text-white px-6 py-2 rounded-xl">Lock &amp; Finalize</button>`
+                : (!item.isConverted
+                    ? `<button onclick="convertQuoteToWorkEntry('${item.docId}')" class="bg-emerald-600 text-white px-6 py-2 rounded-xl shadow-md">Add to Work Entries</button>`
+                    : `<span class="bg-emerald-100 text-emerald-700 font-bold px-6 py-2 rounded-xl flex items-center gap-2"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg> Converted</span>`)
             }
         `;
         modalFooter.classList.remove('hidden');
@@ -618,12 +625,61 @@ function generateQuote() {
 
     const tax = draftQuoteItems.reduce((acc, it) => acc + it.cost, 0);
     const docData = {
-        docId: 'DOC-Q' + Date.now(), type: 'QUOTATION', docNumber: 'EST-' + (5000 + appDB.documents.filter(d => d.type === 'QUOTATION').length),
-        clientId, date, lineItems: [...draftQuoteItems], taxable: tax, cgst: 0, sgst: 0, grandTotal: tax
+        docId: 'DOC-Q' + Date.now(),
+        type: 'QUOTATION',
+        docNumber: 'DRAFT', // Saves as draft initially
+        status: 'DRAFT',    // New status field
+        clientId,
+        date,
+        lineItems: [...draftQuoteItems],
+        taxable: tax, cgst: 0, sgst: 0, grandTotal: tax,
+        isConverted: false
     };
     appDB.documents.push(docData);
     saveDB(); refreshUI(); closeAllModals();
     openPrintPreview('QUOTATION', docData);
+}
+
+function lockQuote(id) {
+    const q = appDB.documents.find(doc => doc.docId === id);
+    if (!q || q.status === 'LOCKED') return;
+
+    if (q.docNumber === 'DRAFT' || !q.docNumber) {
+        const dDate = new Date(q.date);
+        const yy = dDate.getFullYear().toString().slice(-2);
+        const mm = (dDate.getMonth() + 1).toString().padStart(2, '0');
+        const prefix = `${yy}${mm}-Q`;
+
+        const existingInThisSeq = appDB.documents
+            .filter(doc => doc.type === 'QUOTATION' && doc.status === 'LOCKED' && doc.docNumber.startsWith(prefix))
+            .map(doc => parseInt(doc.docNumber.replace(prefix, ''), 10))
+            .filter(n => !isNaN(n));
+
+        const highestSeq = existingInThisSeq.length > 0 ? Math.max(...existingInThisSeq) : 0;
+        const nextSeq = (highestSeq + 1).toString().padStart(3, '0');
+
+        q.docNumber = prefix + nextSeq;
+    }
+
+    q.status = 'LOCKED';
+    saveDB(); refreshUI(); closeAllModals();
+}
+
+function duplicateQuote(id) {
+    const q = appDB.documents.find(doc => doc.docId === id);
+    if (!q) return;
+
+    closeAllModals();
+    openQuoteModal();
+
+    // Pre-fill the modal with the old quote's data
+    const client = getClientById(q.clientId);
+    document.getElementById('quote-client').value = client.shortName;
+    document.getElementById('quote-vehicle').value = q.lineItems[0] ? q.lineItems[0].vehicle : '';
+
+    // Deep copy the items so we don't accidentally edit the locked quote in memory
+    draftQuoteItems = JSON.parse(JSON.stringify(q.lineItems));
+    renderQuoteDraftTable();
 }
 
 function convertQuoteToWorkEntry(quoteId) {
@@ -674,26 +730,31 @@ function renderQuotes() {
     const quotes = appDB.documents.filter(d => d.type === 'QUOTATION').sort((a, b) => b.date.localeCompare(a.date));
     tbody.innerHTML = quotes.map(q => {
         const c = getClientById(q.clientId);
+        const isLocked = q.status === 'LOCKED';
+        const statusBadge = `<span class="px-2 py-1 rounded-full text-[10px] font-black ${isLocked ? 'bg-slate-800 text-white' : 'bg-amber-100 text-amber-700'}">${q.status || 'DRAFT'}</span>`;
+
         const opt = [
             { label: 'Print View', onClick: `reprintDoc('${q.docId}')`, classes: 'text-primary-600' },
-            { label: 'Delete Quotation', onClick: `deleteQuote('${q.docId}')`, classes: 'text-rose-600' }
+            { label: 'Revise / Duplicate', onClick: `duplicateQuote('${q.docId}')`, classes: 'text-indigo-600' },
+            ...(!isLocked ? [{ label: 'Lock & Finalize', onClick: `lockQuote('${q.docId}')`, classes: 'text-emerald-600' }] : []),
+            ...(!isLocked ? [{ label: 'Delete Draft', onClick: `deleteQuote('${q.docId}')`, classes: 'text-rose-600' }] : [])
         ];
         return `
         <tr class="hidden md:table-row border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 pointer transition-colors" onclick="showDetails('QUOTE', '${q.docId}')">
-            <td class="p-4 font-medium">${formatDate(q.date)}</td>
+            <td class="p-4 font-medium">${formatDate(q.date)}<br><span class="text-[10px] font-bold text-slate-400">${q.docNumber}</span></td>
             <td class="p-4"><div class="font-bold">${c.shortName}</div></td>
             <td class="p-4 italic text-xs">${q.lineItems[0] ? q.lineItems[0].vehicle : '--'}</td>
-            <td class="p-4 text-center font-bold text-[10px]">${q.isConverted ? 'CONVERTED' : 'PENDING'}</td>
+            <td class="p-4 text-center">${statusBadge}</td>
             <td class="p-4 text-right font-black">₹${q.grandTotal}</td>
             <td class="p-4 text-center" onclick="event.stopPropagation()">${createKebabMenu('kbq-' + q.docId, opt)}</td>
         </tr>
         <div class="md:hidden bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm" onclick="showDetails('QUOTE', '${q.docId}')">
            <div class="flex justify-between items-start mb-2">
-              <div><p class="text-[10px] text-slate-400 font-bold uppercase">${formatDate(q.date)}</p><p class="font-bold text-slate-900 dark:text-white">${c.shortName}</p></div>
+              <div><p class="text-[10px] text-slate-400 font-bold uppercase">${q.docNumber} | ${formatDate(q.date)}</p><p class="font-bold text-slate-900 dark:text-white">${c.shortName}</p></div>
               <div class="text-right font-black">₹${q.grandTotal}</div>
            </div>
            <div class="flex justify-between items-center border-t pt-3">
-              <span class="text-[9px] font-bold text-slate-400">${q.lineItems[0] ? q.lineItems[0].vehicle : ''}</span>
+              ${statusBadge}
               <div onclick="event.stopPropagation()">${createKebabMenu('kbqm-' + q.docId, opt)}</div>
            </div>
         </div>`;
@@ -938,6 +999,8 @@ window.openQuoteModal = openQuoteModal;
 window.addQuoteItem = addQuoteItem;
 window.removeQuoteItem = removeQuoteItem;
 window.generateQuote = generateQuote;
+window.lockQuote = lockQuote;
+window.duplicateQuote = duplicateQuote;
 window.convertQuoteToWorkEntry = convertQuoteToWorkEntry;
 window.renderQuotes = renderQuotes;
 window.deleteQuote = deleteQuote;
