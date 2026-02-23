@@ -126,7 +126,7 @@ function resetDatabase() {
     }
 }
 
-// --- BULLETPROOF TEST DATA GENERATOR ---
+// --- BULLETPROOF TEST DATA GENERATOR (OVERHAULED) ---
 function injectDummyData() {
     const btns = document.querySelectorAll('.dummy-btn');
     if (btns.length > 0 && btns[0].disabled) return;
@@ -145,28 +145,62 @@ function injectDummyData() {
                 return;
             }
 
-            const works = ["FRONT BUMPHER DENTING", "SEAT WELDING #3", "GLASS FITTING", "PAINT TOUCHUP", "LOCK SETTING", "DIESEL TANK ZALI", "GUARD PIPE FITTING"];
-            const vehs = ["MH14CW7474", "EICHER BUS", "MH12FZ8311", "MH04G7107", "MH06S7836", "MH14GD9295"];
+            const works = [
+                "FRONT BUMPER DENTING", "SEAT WELDING", "GLASS FITTING", "PAINT TOUCHUP",
+                "LOCK SETTING", "DIESEL TANK ZALI", "GUARD PIPE FITTING", "MUDGUARD REPAIR",
+                "WIRING CHECK", "FLOOR MATTING", "ROOF LEAKAGE FIX", "DOOR ALIGNMENT",
+                "WHEEL CAP FITTING", "BUMPER PAINTING", "CABIN CLEANING"
+            ];
+            const vehs = ["MH14CW7474", "EICHER BUS", "MH12FZ8311", "MH04G7107", "MH06S7836", "MH14GD9295", "MH12AB1234"];
             const methods = ["NEFT", "Cash", "GPay", "Cheque"];
-            const rndDate = () => { const d = new Date(); d.setDate(d.getDate() - Math.floor(Math.random() * 180)); return d.toISOString().split('T')[0]; };
 
-            // 1. Generate 100 Work Entries
+            // Restrict Dates: Oct 1, 2025 to Dec 31, 2025
+            const startT = new Date('2025-10-01T00:00:00').getTime();
+            const endT = new Date('2025-12-31T23:59:59').getTime();
+            const rndDate = () => {
+                const t = startT + Math.random() * (endT - startT);
+                return new Date(t).toISOString().split('T')[0];
+            };
+
+            const getRndWork = () => works[Math.floor(Math.random() * works.length)];
+            const getRndVeh = () => vehs[Math.floor(Math.random() * vehs.length)];
+            const getRndClient = () => appDB.clients[Math.floor(Math.random() * appDB.clients.length)].clientId;
+            const timestamp = Date.now();
+
+            // 1. Generate 100 Work Entries (Mix of normal and stress-test massive entries)
             for (let i = 0; i < 100; i++) {
-                let itemsCount = Math.floor(Math.random() * 3 + 1);
+                // Force every 10th entry to be a stress-test entry (50 to 100 items)
+                let isMassive = (i % 10 === 0);
+                let itemsCount = isMassive ? Math.floor(Math.random() * 51 + 50) : Math.floor(Math.random() * 5 + 1);
+
                 let items = [];
                 let totalCost = 0;
                 for (let j = 0; j < itemsCount; j++) {
                     let cost = Math.floor(Math.random() * 50 + 1) * 100;
                     totalCost += cost;
-                    items.push({ workDone: works[Math.floor(Math.random() * works.length)], cost: cost });
+                    // Add index to massive descriptions so they are visually distinct when testing UI
+                    let desc = getRndWork() + (isMassive ? ` (Part #${j + 1})` : '');
+                    items.push({ workDone: desc, cost: cost });
                 }
-                appDB.work_entries.push({ entryId: 'WE-T' + i + Date.now(), date: rndDate(), clientId: appDB.clients[Math.floor(Math.random() * appDB.clients.length)].clientId, vehicle: vehs[Math.floor(Math.random() * vehs.length)], items: items, totalCost: totalCost, status: 'UNBILLED', docId: null });
+
+                appDB.work_entries.push({
+                    entryId: `WE-${timestamp}-${i}`,
+                    date: rndDate(),
+                    clientId: getRndClient(),
+                    vehicle: getRndVeh(),
+                    items: items,
+                    totalCost: totalCost,
+                    status: 'UNBILLED',
+                    docId: null
+                });
             }
 
-            // 2. Generate 15 Bills
-            let unb = appDB.work_entries.slice(0, 45).filter(w => w.status === 'UNBILLED');
+            // 2. Generate 15 Bills (Invoices)
+            let unb = appDB.work_entries.filter(w => w.status === 'UNBILLED');
             for (let i = 0; i < 15; i++) {
                 if (unb.length === 0) break;
+
+                // Grab 1 to 3 random unbilled entries (which may include the massive ones generated above)
                 let count = Math.floor(Math.random() * 3 + 1);
                 let chk = unb.splice(0, count);
                 if (chk.length === 0) break;
@@ -174,35 +208,78 @@ function injectDummyData() {
                 let cid = chk[0].clientId;
                 let tax = 0;
                 let lItms = [];
+
                 chk.forEach(w => {
-                    w.clientId = cid;
+                    w.clientId = cid; // Force same client for the bulk bill
                     w.status = 'BILLED';
                     w.items.forEach(it => {
                         tax += it.cost;
                         lItms.push({ date: w.date, vehicle: w.vehicle, workDone: it.workDone, cost: it.cost });
                     });
                 });
-                let docId = 'DOC-T' + i + Date.now();
+
+                let docId = `DOC-${timestamp}-${i}`;
                 chk.forEach(w => w.docId = docId);
-                appDB.documents.push({ docId: docId, type: 'INVOICE', docNumber: 'INV-' + (1000 + i), clientId: cid, date: rndDate(), status: (i % 2 === 0) ? 'DRAFT' : 'LOCKED', lineItems: lItms, taxable: tax, cgst: tax * 0.09, sgst: tax * 0.09, grandTotal: tax * 1.18 });
+
+                let isTaxable = (i % 3 !== 0); // 2/3rds are Taxable, 1/3rd Non-Taxable (Memo)
+                let cgst = isTaxable ? tax * 0.09 : 0;
+                let sgst = isTaxable ? tax * 0.09 : 0;
+                let grandTotal = isTaxable ? tax * 1.18 : tax;
+
+                appDB.documents.push({
+                    docId: docId,
+                    type: 'INVOICE',
+                    docNumber: 'INV-' + (1000 + i),
+                    clientId: cid,
+                    date: rndDate(),
+                    status: (i % 2 === 0) ? 'DRAFT' : 'LOCKED',
+                    isTaxable: isTaxable,
+                    lineItems: lItms,
+                    taxable: tax,
+                    cgst: cgst,
+                    sgst: sgst,
+                    grandTotal: grandTotal
+                });
             }
 
-            // 3. Generate 15 Quotes
+            // 3. Generate 15 Quotes (Mix of normal and massive)
             for (let i = 0; i < 15; i++) {
-                let itemsCount = Math.floor(Math.random() * 3 + 1);
+                let isMassive = (i % 5 === 0); // 3 massive quotes
+                let itemsCount = isMassive ? Math.floor(Math.random() * 51 + 50) : Math.floor(Math.random() * 5 + 1);
+
                 let taxable = 0;
                 let lineItems = [];
                 for (let j = 0; j < itemsCount; j++) {
                     let cost = Math.floor(Math.random() * 100 + 10) * 100;
                     taxable += cost;
-                    lineItems.push({ vehicle: vehs[Math.floor(Math.random() * vehs.length)], workDone: works[Math.floor(Math.random() * works.length)], cost: cost });
+                    let desc = getRndWork() + (isMassive ? ` (Sub-task #${j + 1})` : '');
+                    lineItems.push({ vehicle: getRndVeh(), workDone: desc, cost: cost });
                 }
-                appDB.documents.push({ docId: 'DOC-Q' + i + Date.now(), type: 'QUOTATION', docNumber: 'EST-' + (5000 + i), clientId: appDB.clients[Math.floor(Math.random() * appDB.clients.length)].clientId, date: rndDate(), lineItems: lineItems, taxable: taxable, cgst: 0, sgst: 0, grandTotal: taxable, isConverted: (i % 3 === 0) });
+
+                appDB.documents.push({
+                    docId: `DOC-Q-${timestamp}-${i}`,
+                    type: 'QUOTATION',
+                    docNumber: 'EST-' + (5000 + i),
+                    clientId: getRndClient(),
+                    date: rndDate(),
+                    lineItems: lineItems,
+                    taxable: taxable,
+                    cgst: 0,
+                    sgst: 0,
+                    grandTotal: taxable,
+                    isConverted: (i % 3 === 0)
+                });
             }
 
             // 4. Generate 40 Payments
             for (let i = 0; i < 40; i++) {
-                appDB.payments.push({ paymentId: 'PAY-T' + i + Date.now(), date: rndDate(), clientId: appDB.clients[Math.floor(Math.random() * appDB.clients.length)].clientId, amount: Math.floor(Math.random() * 100 + 5) * 500, method: methods[Math.floor(Math.random() * methods.length)] });
+                appDB.payments.push({
+                    paymentId: `PAY-${timestamp}-${i}`,
+                    date: rndDate(),
+                    clientId: getRndClient(),
+                    amount: Math.floor(Math.random() * 100 + 5) * 500,
+                    method: methods[Math.floor(Math.random() * methods.length)]
+                });
             }
 
             saveDB();

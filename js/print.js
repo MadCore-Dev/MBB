@@ -20,11 +20,9 @@ function reprintDoc(docId) {
 }
 
 function printStatement() {
-    // Check if we have the statement data prepared
     if (window.printPayload && window.printPayload.type === 'STATEMENT') {
         openPrintPreview('STATEMENT', window.printPayload);
     } else {
-        // Fallback just in case
         window.print();
     }
 }
@@ -32,7 +30,6 @@ function printStatement() {
 function closePrintView() {
     document.getElementById('print-view').classList.remove('active');
     document.getElementById('app-container').classList.remove('hidden');
-    // Safely remove print flags without destroying the app's base theme classes
     document.body.classList.remove('print-a4', 'print-thermal');
 }
 
@@ -40,11 +37,9 @@ function setPrintLayout(mode) {
     const container = document.getElementById('print-content');
     if (!container) return;
 
-    // Explicitly prevent CSS from clipping dynamic content
     container.style.overflow = 'visible';
-    container.style.height = 'auto'; // Let it stretch naturally
+    container.style.height = 'auto';
 
-    // Target our newly created layout wrappers
     const a4View = container.querySelector('.a4-layout-container');
     const thermalView = container.querySelector('.thermal-layout-container');
 
@@ -55,21 +50,19 @@ function setPrintLayout(mode) {
         if (a4View) a4View.style.display = 'none';
         if (thermalView) thermalView.style.display = 'block';
     } else {
-        container.className = 'preview-a4 bg-white relative text-black mx-auto print:mx-0 print:w-full print:shadow-none print:p-0';
+        container.className = 'relative text-black mx-auto print:mx-0 w-full print:shadow-none bg-transparent';
         document.body.classList.remove('print-thermal');
         document.body.classList.add('print-a4');
         if (a4View) a4View.style.display = 'block';
         if (thermalView) thermalView.style.display = 'none';
     }
 
-    // Force scale & height recalculation after DOM reflow
     setTimeout(() => {
         setPrintScale(window.currentScaleMode || '100%');
     }, 50);
 }
 
 function setPrintScale(scaleMode) {
-    // Remember the chosen scale mode for when layouts are toggled
     scaleMode = scaleMode || window.currentScaleMode || '100%';
     window.currentScaleMode = scaleMode;
 
@@ -83,7 +76,6 @@ function setPrintScale(scaleMode) {
 
     const isThermal = document.body.classList.contains('print-thermal');
     const baseWidth = isThermal ? 302 : 794;
-    // Allow thermal to stretch as long as it needs
     const baseHeight = Math.max(isThermal ? 400 : 1123, content.offsetHeight);
 
     const availableWidth = window.innerWidth - 32;
@@ -94,7 +86,6 @@ function setPrintScale(scaleMode) {
     if (scaleMode === '100%' || scaleMode === 'fit-page') {
         const scaleW = availableWidth / baseWidth;
         const scaleH = availableHeight / baseHeight;
-        // If it's thermal, we rarely want to 'fit-page' height because receipts are very long
         newScale = isThermal ? scaleW : Math.min(scaleW, scaleH);
     } else if (scaleMode === 'fit-width') {
         newScale = availableWidth / baseWidth;
@@ -102,9 +93,10 @@ function setPrintScale(scaleMode) {
 
     newScale = Math.min(newScale, 2);
     wrapper.style.setProperty('--print-scale', newScale.toFixed(3));
-
     wrapper.style.height = (baseHeight * newScale) + 'px';
     wrapper.style.transformOrigin = 'top center';
+
+    updatePageHeightDebugger();
 }
 
 function openPrintPreview(type, data) {
@@ -112,15 +104,25 @@ function openPrintPreview(type, data) {
     const content = document.getElementById('print-content');
     if (!view || !content) return;
 
-    // Ensure Modals are closed so they don't bleed into the physical print
     if (window.closeAllModals) window.closeAllModals();
 
-    let html = '';
+    view.classList.add('active');
+    document.getElementById('app-container').classList.add('hidden');
+
+    const wrapper = document.getElementById('print-scale-wrapper');
+    if (wrapper) {
+        wrapper.style.transform = 'scale(1)';
+        wrapper.style.height = 'auto';
+    }
+    content.style.height = 'auto';
+
+    setPrintLayout('a4');
+    content.innerHTML = '';
+
     const client = appDB.clients.find(c => c.clientId === data.clientId) || { printName: 'Unknown Client', address: '', gstin: '' };
 
     if (type === 'INVOICE' || type === 'QUOTATION') {
         const isInv = (type === 'INVOICE');
-        // If it's a Quote, isTaxable is ALWAYS false. If it's an Invoice, check its specific state.
         const isTaxable = isInv && data.isTaxable !== false;
         const docLabel = isInv ? (isTaxable ? 'TAX INVOICE' : 'MEMO') : 'ESTIMATE / QUOTATION';
 
@@ -136,128 +138,210 @@ function openPrintPreview(type, data) {
             groups[groupIndex[key]].total += it.cost;
         });
 
-        // ==========================================
-        // 1. GENERATE A4 LAYOUT
-        // ==========================================
-        let a4ItemRowsHtml = '';
-        groups.forEach(g => {
-            const workLines = g.items.map(it => `<div>${it.workDone}</div>`).join('');
-            const costLines = g.items.map(it => `<div>${it.cost.toFixed(2)}</div>`).join('');
+        const a4Container = document.createElement('div');
+        a4Container.className = 'a4-layout-container flex flex-col gap-8 print:gap-0 w-full items-center bg-transparent';
+        content.appendChild(a4Container);
 
-            a4ItemRowsHtml += `
-            <tr style="border-bottom: 1px dashed black;">
-                <td class="p-2 align-top whitespace-nowrap" style="border-right: 1px solid black;">${formatDate(g.date)}</td>
-                <td class="p-2 align-top font-bold uppercase" style="border-right: 1px solid black;">${g.vehicle}</td>
-                <td class="p-2 align-top uppercase" style="border-right: 1px solid black;">${workLines}</td>
-                <td class="p-2 align-top text-right" style="border-right: 1px solid black;">${costLines}</td>
-                <td class="p-2 align-top text-right font-bold">${g.total.toFixed(2)}</td>
-            </tr>`;
+        let allRows = [];
+        groups.forEach(g => {
+            g.items.forEach((it, idx) => {
+                allRows.push({
+                    date: idx === 0 ? formatDate(g.date) : '',
+                    vehicle: idx === 0 ? g.vehicle : '',
+                    workDone: it.workDone,
+                    cost: it.cost.toFixed(2),
+                    amount: idx === 0 ? g.total.toFixed(2) : ''
+                });
+            });
         });
 
-        const taxRowsHtml = isTaxable ? `
-            <tr>
-                <td colspan="4" class="p-1.5 text-right font-bold text-[11px]" style="border-right: 1px solid black; color: black !important;">TAXABLE VALUE</td>
-                <td class="p-1.5 text-right font-bold" style="color: black !important;">${data.taxable.toFixed(2)}</td>
-            </tr>
-            <tr>
-                <td colspan="4" class="p-1 text-right text-[10px] font-bold" style="border-right: 1px solid black; color: black !important;">ADD GST: CGST 9%</td>
-                <td class="p-1 text-right text-[10px] font-bold" style="color: black !important;">${data.cgst.toFixed(2)}</td>
-            </tr>
-            <tr>
-                <td colspan="4" class="p-1 text-right text-[10px] font-bold" style="border-right: 1px solid black; color: black !important;">SGST 9%</td>
-                <td class="p-1 text-right text-[10px] font-bold" style="color: black !important;">${data.sgst.toFixed(2)}</td>
-            </tr>` : `
-            <tr>
-                <td colspan="4" class="p-1.5 text-right font-bold text-[11px]" style="border-right: 1px solid black; color: black !important;">TAXABLE VALUE / TOTAL</td>
-                <td class="p-1.5 text-right font-bold" style="color: black !important;">${data.taxable.toFixed(2)}</td>
-            </tr>`;
+        let pageIndex = 0;
+        let currentPage = null;
+        let currentTbody = null;
+        let pages = [];
 
-        const a4Html = `
-        <div class="text-black font-sans w-full" style="box-sizing: border-box; overflow: visible;">
-            <div class="flex items-center justify-between mb-1">
-                <div class="flex items-center justify-start w-1/4">
-                    <img src="assets/logo.png" alt="MBB Logo" class="w-20 h-20 object-contain filter-primary-blue" style="filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;">
-                </div>
-                <div class="text-center w-2/4">
-                    <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 46px; color: #0033cc !important; line-height: 1; font-weight: normal; margin-bottom: 2px;">${COMPANY_DETAILS.name}</h1>
-                </div>
-                <div class="text-right text-[11px] font-bold w-1/4" style="color: black !important;">
-                    <p>${COMPANY_DETAILS.phone1}</p>
-                    <p>${COMPANY_DETAILS.phone2}</p>
-                </div>
+        const taxRowsHtml = isTaxable ? `
+            <table class="w-full text-[12px] border-x border-b border-black" style="table-layout: fixed; border-collapse: collapse; margin-top: -1px; color: black !important;">
+                <colgroup><col style="width: 15%;"><col style="width: 20%;"><col style="width: 40%;"><col style="width: 12%;"><col style="width: 13%;"></colgroup>
+                <tbody>
+                    <tr><td colspan="4" class="p-1.5 text-right font-bold text-[11px] border-r border-black" style="color: black !important;">TAXABLE VALUE</td><td class="p-1.5 text-right font-bold" style="color: black !important;">${data.taxable.toFixed(2)}</td></tr>
+                    <tr><td colspan="4" class="p-1 text-right text-[10px] font-bold border-r border-black" style="color: black !important;">ADD GST: CGST 9%</td><td class="p-1 text-right text-[10px] font-bold" style="color: black !important;">${data.cgst.toFixed(2)}</td></tr>
+                    <tr><td colspan="4" class="p-1 text-right text-[10px] font-bold border-r border-black" style="color: black !important;">SGST 9%</td><td class="p-1 text-right text-[10px] font-bold" style="color: black !important;">${data.sgst.toFixed(2)}</td></tr>
+                    <tr class="border-t border-black"><td colspan="4" class="p-2 text-right font-bold border-r border-black">TOTAL</td><td class="p-2 text-right font-black text-[13px]">₹ ${Math.round(data.grandTotal).toLocaleString('en-IN')}</td></tr>
+                </tbody>
+            </table>
+        ` : `
+            <table class="w-full text-[12px] border-x border-b border-black" style="table-layout: fixed; border-collapse: collapse; margin-top: -1px; color: black !important;">
+                <colgroup><col style="width: 15%;"><col style="width: 20%;"><col style="width: 40%;"><col style="width: 12%;"><col style="width: 13%;"></colgroup>
+                <tbody>
+                    <tr><td colspan="4" class="p-1.5 text-right font-bold text-[11px] border-r border-black" style="color: black !important;">TAXABLE VALUE / TOTAL</td><td class="p-1.5 text-right font-bold" style="color: black !important;">${data.taxable.toFixed(2)}</td></tr>
+                    <tr class="border-t border-black"><td colspan="4" class="p-2 text-right font-bold border-r border-black">TOTAL</td><td class="p-2 text-right font-black text-[13px]">₹ ${Math.round(data.grandTotal).toLocaleString('en-IN')}</td></tr>
+                </tbody>
+            </table>
+        `;
+
+        const finalSignaturesHtml = `
+            ${taxRowsHtml}
+            <div class="border border-black border-t-0 p-2 text-[11px] font-bold uppercase ${!isInv ? 'mb-4' : 'mb-20'}" style="color: black !important;">
+                ${window.numberToWords ? window.numberToWords(Math.round(data.grandTotal)) : ''}
             </div>
-            <div class="text-center text-[10px] font-bold mb-2 flex justify-center gap-2" style="color: black !important;">
-                <span>${COMPANY_DETAILS.tagline}</span>
-                ${isTaxable ? `<span>GSTIN: ${COMPANY_DETAILS.gstin}</span>` : ''}
+            ${!isInv ? `<div class="text-[11px] font-bold text-left mb-16 italic" style="color: black !important;">${COMPANY_DETAILS.quoteDisclaimers.map(d => `<p>${d}</p>`).join('')}</div>` : ''}
+            <div class="flex justify-between items-end text-[12px] font-bold px-2 mt-auto" style="color: black !important;">
+                <div>Receivers Signature</div>
+                <div class="text-center"><p class="mb-12">For ${COMPANY_DETAILS.name}</p><p>Authorised Signature</p></div>
             </div>
-            <div class="border-y border-black text-center py-1.5 text-[11px] font-medium mb-6" style="color: black !important;">
-                Address : ${COMPANY_DETAILS.address}
+        `;
+
+        const contSignaturesHtml = `
+            <div class="text-center text-[10px] italic text-gray-500 mt-2 pb-2">
+                Continued on next page...
             </div>
-            <div class="flex justify-between items-start mb-6 text-[12px]" style="color: black !important;">
+        `;
+
+        function createNewPage() {
+            const isFirst = pageIndex === 0;
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'preview-a4 bg-white relative text-black print:p-0 print:m-0 print:shadow-none print:break-inside-avoid flex flex-col mx-auto';
+            pageDiv.style.boxSizing = 'border-box';
+            pageDiv.style.overflow = 'hidden';
+            pageDiv.style.minHeight = 'auto'; // Shrink-wrap mode for true pixel measurement
+
+            const headerHtml = isFirst ? `
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center justify-start w-1/4">
+                        <img src="assets/logo.png" alt="MBB Logo" class="w-20 h-20 object-contain filter-primary-blue" style="filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;">
+                    </div>
+                    <div class="text-center w-2/4">
+                        <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 46px; color: #0033cc !important; line-height: 1; font-weight: normal; margin-bottom: 2px;">${COMPANY_DETAILS.name}</h1>
+                    </div>
+                    <div class="text-right text-[11px] font-bold w-1/4" style="color: black !important;">
+                        <p>${COMPANY_DETAILS.phone1}</p>
+                        <p>${COMPANY_DETAILS.phone2}</p>
+                    </div>
+                </div>
+                <div class="text-center text-[10px] font-bold mb-2 flex justify-center gap-2" style="color: black !important;">
+                    <span>${COMPANY_DETAILS.tagline}</span>
+                    ${isTaxable ? `<span>GSTIN: ${COMPANY_DETAILS.gstin}</span>` : ''}
+                </div>
+                <div class="border-y border-black text-center py-1.5 text-[11px] font-medium mb-6" style="color: black !important;">
+                    Address : ${COMPANY_DETAILS.address}
+                </div>
+            ` : `
+                <div class="flex justify-between items-end border-b-[1.5px] border-black pb-2 mb-4" style="color: black !important;">
+                    <div class="flex items-center gap-2">
+                        <img src="assets/logo.png" alt="MBB Logo" class="h-8 w-8 object-contain filter-primary-blue" style="filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;">
+                        <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 26px; color: #0033cc !important; line-height: 1; margin-bottom: 0;">${COMPANY_DETAILS.name}</h1>
+                    </div>
+                    <div class="text-right text-[10px] font-bold uppercase pb-1 mini-header-cont"></div>
+                </div>
+            `;
+
+            const clientHtml = `
+            <div class="flex justify-between items-start mb-4 text-[12px]" style="color: black !important;">
                 <div class="w-1/2 flex gap-2">
                     <span class="font-bold">To,</span>
                     <div>
                         <h2 class="font-bold text-base uppercase leading-none mb-1.5">${client.printName}</h2>
-                        <p class="whitespace-pre-wrap leading-tight mb-2">${client.address || ''}</p>
-                        ${isTaxable && client.gstin ? `<div class="mt-2"><span class="font-bold">GSTIN:</span> <span class="font-bold uppercase">${client.gstin}</span></div>` : ''}
+                        ${isFirst ? `<p class="whitespace-pre-wrap leading-tight mb-2">${client.address || ''}</p>` : ''}
+                        ${isTaxable && client.gstin ? `<div class="${isFirst ? 'mt-2' : ''}"><span class="font-bold">GSTIN:</span> <span class="font-bold uppercase">${client.gstin}</span></div>` : ''}
                     </div>
                 </div>
                 <div class="w-1/3 flex flex-col items-end text-right">
-                    <h2 class="font-bold text-lg uppercase tracking-widest border-b-[1.5px] border-black pb-0.5 mb-2 inline-block">${docLabel}</h2>
+                    ${isFirst ? `<h2 class="font-bold text-lg uppercase tracking-widest border-b-[1.5px] border-black pb-0.5 mb-2 inline-block">${docLabel}</h2>` : ''}
                     <table class="text-[12px]">
-                        <tr><td class="pr-2 text-right">Invoice No.:</td><td class="font-bold text-left">${data.docNumber}</td></tr>
+                        <tr><td class="pr-2 text-right">No.:</td><td class="font-bold text-left">${data.docNumber}</td></tr>
                         <tr><td class="pr-2 text-right">Date:</td><td class="font-bold text-left">${formatDate(data.date)}</td></tr>
                     </table>
                 </div>
-            </div>
-            <table class="w-full text-[12px] border border-black" style="border-collapse: collapse; color: black !important;">
-                <thead>
-                    <tr class="font-bold text-left border-b border-black">
-                        <th class="p-2 w-[15%]" style="border-right: 1px solid black;">Date</th>
-                        <th class="p-2 w-[20%]" style="border-right: 1px solid black;">Vehicle No.</th>
-                        <th class="p-2 w-[40%]" style="border-right: 1px solid black;">Work</th>
-                        <th class="p-2 w-[12%] text-right" style="border-right: 1px solid black;">Cost</th>
-                        <th class="p-2 w-[13%] text-right">Amount</th>
-                    </tr>
-                </thead>
-                <tbody class="align-top border-b border-black">
-                    ${a4ItemRowsHtml}
-                    <tr>
-                        <td class="h-24" style="border-right: 1px solid black;"></td>
-                        <td style="border-right: 1px solid black;"></td>
-                        <td style="border-right: 1px solid black;"></td>
-                        <td style="border-right: 1px solid black;"></td>
-                        <td></td>
-                    </tr>
-                </tbody>
-                <tfoot>
-                    ${taxRowsHtml}
-                    <tr class="border-t border-black">
-                        <td colspan="4" class="p-2 text-right font-bold" style="border-right: 1px solid black;">TOTAL</td>
-                        <td class="p-2 text-right font-black text-[13px]">₹ ${Math.round(data.grandTotal).toLocaleString('en-IN')}</td>
-                    </tr>
-                </tfoot>
-            </table>
-            
-            <div class="border border-black border-t-0 p-2 text-[11px] font-bold uppercase ${!isInv ? 'mb-4' : 'mb-24'}" style="color: black !important;">
-                ${window.numberToWords ? window.numberToWords(Math.round(data.grandTotal)) : ''}
-            </div>
+            </div>`;
 
-            ${!isInv ? `
-            <div class="text-[11px] font-bold text-left mb-16 italic" style="color: black !important;">
-                ${COMPANY_DETAILS.quoteDisclaimers.map(d => `<p>${d}</p>`).join('')}
-            </div>
-            ` : ''}
-
-            <div class="flex justify-between items-end text-[12px] font-bold px-2" style="color: black !important;">
-                <div>Receivers Signature</div>
-                <div class="text-center">
-                    <p class="mb-12">For ${COMPANY_DETAILS.name}</p>
-                    <p>Authorised Signature</p>
+            // FIX: Added 'main-tbody' class to explicitly target this table instead of the client header table
+            pageDiv.innerHTML = `
+                ${headerHtml}
+                ${clientHtml}
+                <table class="w-full text-[12px] border border-black" style="table-layout: fixed; border-collapse: collapse; color: black !important; background: transparent;">
+                    <colgroup>
+                        <col style="width: 15%;">
+                        <col style="width: 20%;">
+                        <col style="width: 40%;">
+                        <col style="width: 12%;">
+                        <col style="width: 13%;">
+                    </colgroup>
+                    <tbody class="align-top border-b border-black main-tbody">
+                        <tr class="font-bold text-left border-b border-black bg-gray-50 print:bg-white">
+                            <th class="p-2 border-r border-black">Date</th>
+                            <th class="p-2 border-r border-black">Vehicle No.</th>
+                            <th class="p-2 border-r border-black">Work</th>
+                            <th class="p-2 border-r border-black text-right">Cost</th>
+                            <th class="p-2 text-right">Amount</th>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="flex-grow flex border-x border-b border-black text-[12px] box-border bg-white" style="margin-top: -1px;">
+                    <div style="width: 15%;" class="border-r border-black"></div>
+                    <div style="width: 20%;" class="border-r border-black"></div>
+                    <div style="width: 40%;" class="border-r border-black"></div>
+                    <div style="width: 12%;" class="border-r border-black"></div>
+                    <div style="width: 13%;"></div>
                 </div>
-            </div>
-        </div>`;
+                <div class="page-signatures flex flex-col justify-end mt-0"></div>
+                <div class="absolute bottom-2 right-4 text-[9px] font-bold text-gray-400 no-print page-number-stamp"></div>
+            `;
 
+            a4Container.appendChild(pageDiv);
+            currentPage = pageDiv;
+            currentTbody = pageDiv.querySelector('.main-tbody'); // Strict targeting
+            pages.push(pageDiv);
+            pageIndex++;
+        }
+
+        createNewPage();
+
+        allRows.forEach((r, i) => {
+            const isLastRow = (i === allRows.length - 1);
+
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px dashed black';
+            tr.innerHTML = `
+                <td class="p-2 align-top break-words border-r border-black">${r.date}</td>
+                <td class="p-2 align-top font-bold uppercase break-words border-r border-black">${r.vehicle}</td>
+                <td class="p-2 align-top uppercase break-words whitespace-pre-wrap border-r border-black">${r.workDone}</td>
+                <td class="p-2 align-top text-right break-words border-r border-black">${r.cost}</td>
+                <td class="p-2 align-top text-right font-bold break-words">${r.amount}</td>
+            `;
+
+            currentTbody.appendChild(tr);
+
+            const miniHeaderCont = currentPage.querySelector('.mini-header-cont');
+            if (miniHeaderCont) miniHeaderCont.innerText = `${docLabel} (Cont.) | Page 99 of 99`;
+
+            const sigs = currentPage.querySelector('.page-signatures');
+            sigs.innerHTML = isLastRow ? finalSignaturesHtml : contSignaturesHtml;
+
+            // Height Check - Ensure we don't accidentally rip out the Header row (which is index 0)
+            if (currentPage.offsetHeight > 1120 && currentTbody.children.length > 2) {
+                // Overflow detected! Pull row back.
+                currentTbody.removeChild(tr);
+                sigs.innerHTML = contSignaturesHtml;
+                currentPage.style.minHeight = '297mm'; // Seal and stretch this page's flex spacer
+
+                // Spin up next page
+                createNewPage();
+                currentTbody.appendChild(tr);
+                currentPage.querySelector('.page-signatures').innerHTML = isLastRow ? finalSignaturesHtml : contSignaturesHtml;
+            }
+        });
+
+        // Seal the final page
+        currentPage.style.minHeight = '297mm';
+
+        pages.forEach((p, idx) => {
+            p.querySelector('.page-number-stamp').innerText = `Page ${idx + 1} of ${pages.length}`;
+            const miniHeaderCont = p.querySelector('.mini-header-cont');
+            if (miniHeaderCont) {
+                miniHeaderCont.innerText = `${docLabel} (Cont.) | Page ${idx + 1} of ${pages.length}`;
+            }
+        });
 
         // ==========================================
         // 2. GENERATE THERMAL LAYOUT
@@ -288,7 +372,6 @@ function openPrintPreview(type, data) {
                 <p class="text-[10px]">${COMPANY_DETAILS.address}</p>
                 ${isTaxable ? `<p class="text-[10px] font-bold mt-1">GSTIN: ${COMPANY_DETAILS.gstin}</p>` : ''}
             </div>
-
             <div class="border-y border-dashed border-black py-2 mb-3 text-[11px]">
                 <div class="text-center font-bold text-[13px] uppercase tracking-wider mb-2">${docLabel}</div>
                 <p><span class="font-bold">To:</span> ${client.printName}</p>
@@ -298,11 +381,9 @@ function openPrintPreview(type, data) {
                     <p><span class="font-bold">Date:</span> ${formatDate(data.date)}</p>
                 </div>
             </div>
-
             <div class="mb-2">
                 ${thermalItemsHtml}
             </div>
-
             <div class="border-t-[1.5px] border-black pt-2 text-[11px]">
                 ${isTaxable ? `
                 <div class="flex justify-between mb-0.5"><span>Taxable:</span><span>₹${data.taxable.toFixed(2)}</span></div>
@@ -316,26 +397,18 @@ function openPrintPreview(type, data) {
                     ${window.numberToWords ? window.numberToWords(Math.round(data.grandTotal)) : ''}
                 </div>
             </div>
-
-            ${!isInv ? `
-            <div class="text-[10px] text-center font-bold mb-3 italic">
-                ${COMPANY_DETAILS.quoteDisclaimers.map(d => `<p>${d}</p>`).join('')}
-            </div>
-            ` : ''}
-
+            ${!isInv ? `<div class="text-[10px] text-center font-bold mb-3 italic">${COMPANY_DETAILS.quoteDisclaimers.map(d => `<p>${d}</p>`).join('')}</div>` : ''}
             <div class="text-center text-[11px] font-bold mb-6">
                 <p>For ${COMPANY_DETAILS.name}</p>
                 <p class="mt-8">(Authorised Signatory)</p>
                 <p class="mt-3 border-b-2 border-black pb-4 text-[10px] tracking-widest uppercase">*** Customer Copy ***</p>
             </div>
-
             ${isInv ? `
             <div class="text-[11px] pt-2 pb-6">
                 <div class="text-center font-bold mb-3 tracking-widest uppercase">*** Office Copy ***</div>
                 <p><span class="font-bold">Inv No:</span> ${data.docNumber}</p>
                 <p><span class="font-bold">Date:</span> ${formatDate(data.date)}</p>
                 <p><span class="font-bold">Client:</span> ${client.printName}</p>
-                
                 <div class="mt-3 border-t-[1.5px] border-black pt-2 text-[11px]">
                     ${isTaxable ? `
                     <div class="flex justify-between mb-0.5"><span>Taxable:</span><span>₹${data.taxable.toFixed(2)}</span></div>
@@ -349,7 +422,6 @@ function openPrintPreview(type, data) {
                         ${window.numberToWords ? window.numberToWords(Math.round(data.grandTotal)) : ''}
                     </div>
                 </div>
-
                 <div class="mt-12 flex justify-between items-end font-bold px-2">
                     <span>Receiver's Sign</span>
                     <span>___________</span>
@@ -358,78 +430,178 @@ function openPrintPreview(type, data) {
             ` : ''}
         </div>`;
 
-        // Wrap them so setPrintLayout can toggle them
-        html = `
-            <div class="a4-layout-container">${a4Html}</div>
-            <div class="thermal-layout-container hidden" style="display: none;">${thermalHtml}</div>
-        `;
+        const thermalContainer = document.createElement('div');
+        thermalContainer.className = 'thermal-layout-container hidden';
+        thermalContainer.style.display = 'none';
+        thermalContainer.innerHTML = thermalHtml;
+        content.appendChild(thermalContainer);
 
     } else if (type === 'STATEMENT') {
 
         // ==========================================
-        // 1. A4 LAYOUT FOR STATEMENTS
+        // 1. A4 LAYOUT FOR STATEMENTS (GHOST RENDERING)
         // ==========================================
-        const statementHtml = `
-        <div class="text-black font-sans w-full" style="box-sizing: border-box; overflow: visible;">
-            <div class="flex items-center justify-between mb-1">
-                <div class="flex items-center justify-start w-1/4">
-                    <img src="assets/logo.png" alt="MBB Logo" class="w-20 h-20 object-contain filter-primary-blue" style="filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;">
-                </div>
-                <div class="text-center w-2/4">
-                    <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 46px; color: #0033cc !important; line-height: 1; font-weight: normal; margin-bottom: 2px;">${COMPANY_DETAILS.name}</h1>
-                </div>
-                <div class="text-right text-[11px] font-bold w-1/4" style="color: black !important;">
-                    <p>${COMPANY_DETAILS.phone1}</p>
-                    <p>${COMPANY_DETAILS.phone2}</p>
-                </div>
-            </div>
-            <div class="text-center text-[10px] font-bold mb-2 flex justify-center gap-2" style="color: black !important;">
-                <span>${COMPANY_DETAILS.tagline}</span>
-            </div>
-            <div class="border-y border-black text-center py-1.5 text-[11px] font-medium mb-6" style="color: black !important;">
-                Address : ${COMPANY_DETAILS.address}
-            </div>
+        const a4Container = document.createElement('div');
+        a4Container.className = 'a4-layout-container flex flex-col gap-8 print:gap-0 w-full items-center bg-transparent';
+        content.appendChild(a4Container);
 
-            <p class="text-center font-bold text-sm mb-6 uppercase tracking-widest border-y border-black py-1" style="color: black !important;">Client Ledger Statement</p>
-            
-            <div class="mb-6 flex justify-between items-end border-b border-dashed border-gray-400 pb-4" style="color: black !important;">
-                <div>
-                    <label class="text-[10px] font-bold text-gray-500 uppercase">Statement For:</label>
-                    <p class="text-xl font-black uppercase">${client.printName}</p>
-                    <p class="text-sm font-bold text-gray-700 mt-1">Period: ${data.from} to ${data.to}</p>
-                </div>
-                <div class="text-right text-sm">
-                    <p>Generated on: ${new Date().toLocaleDateString()}</p>
-                    <p class="font-bold text-lg mt-1">Status: <span class="${data.balance > 0 ? 'text-rose-700' : 'text-emerald-700'}">Balance ₹ ${data.balance.toLocaleString('en-IN')}</span></p>
-                </div>
+        let pageIndex = 0;
+        let currentPage = null;
+        let currentTbody = null;
+        let pages = [];
+
+        const stmtFooterHtml = `
+            <div class="mt-4 text-[10px] text-center text-gray-500 font-bold uppercase tracking-widest mb-4">
+                --- END OF STATEMENT ---
             </div>
-            
-            <table class="w-full text-xs text-left border border-black" style="border-collapse: collapse; color: black !important;">
-                <thead>
-                    <tr class="border-b border-black font-bold uppercase">
-                        <th class="p-2" style="border-right: 1px solid black;">Date</th>
-                        <th class="p-2" style="border-right: 1px solid black;">Particulars / Description</th>
-                        <th class="p-2 text-right" style="border-right: 1px solid black;">Debit (₹)</th>
-                        <th class="p-2 text-right" style="border-right: 1px solid black;">Credit (₹)</th>
-                        <th class="p-2 text-right">Balance</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${data.rows.map(r => `
-                    <tr style="border-bottom: 1px dashed black;" class="${r.type === 'TOTAL' ? 'font-black bg-gray-50' : ''}">
-                        <td class="p-2" style="border-right: 1px solid black;">${r.date}</td>
-                        <td class="p-2" style="border-right: 1px solid black;">
-                           <div class="font-bold">${r.label}</div>
-                           <div class="text-[9px] text-gray-600">${r.ref || ''}</div>
-                        </td>
-                        <td class="p-2 text-right" style="border-right: 1px solid black;">${r.dr ? r.dr.toLocaleString('en-IN') : ''}</td>
-                        <td class="p-2 text-right" style="border-right: 1px solid black;">${r.cr ? r.cr.toLocaleString('en-IN') : ''}</td>
-                        <td class="p-2 text-right font-bold">${r.bal.toLocaleString('en-IN')}</td>
-                    </tr>`).join('')}
-                </tbody>
-            </table>
-            <div class="mt-12 text-[10px] text-center text-gray-500 font-bold uppercase tracking-widest">--- END OF STATEMENT ---</div>
-        </div>`;
+        `;
+
+        const stmtContHtml = `
+            <div class="text-center text-[10px] italic text-gray-500 mt-2 mb-4">
+                Continued on next page...
+            </div>
+        `;
+
+        function createNewPage() {
+            const isFirst = pageIndex === 0;
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'preview-a4 bg-white relative text-black print:p-0 print:m-0 print:shadow-none print:break-inside-avoid flex flex-col mx-auto';
+            pageDiv.style.boxSizing = 'border-box';
+            pageDiv.style.overflow = 'hidden';
+            pageDiv.style.minHeight = 'auto';
+
+            const headerHtml = isFirst ? `
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center justify-start w-1/4">
+                        <img src="assets/logo.png" alt="MBB Logo" class="w-20 h-20 object-contain filter-primary-blue" style="filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;">
+                    </div>
+                    <div class="text-center w-2/4">
+                        <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 46px; color: #0033cc !important; line-height: 1; font-weight: normal; margin-bottom: 2px;">${COMPANY_DETAILS.name}</h1>
+                    </div>
+                    <div class="text-right text-[11px] font-bold w-1/4" style="color: black !important;">
+                        <p>${COMPANY_DETAILS.phone1}</p>
+                        <p>${COMPANY_DETAILS.phone2}</p>
+                    </div>
+                </div>
+                <div class="text-center text-[10px] font-bold mb-2 flex justify-center gap-2" style="color: black !important;">
+                    <span>${COMPANY_DETAILS.tagline}</span>
+                </div>
+                <div class="border-y border-black text-center py-1.5 text-[11px] font-medium mb-6" style="color: black !important;">
+                    Address : ${COMPANY_DETAILS.address}
+                </div>
+            ` : `
+                <div class="flex justify-between items-end border-b-[1.5px] border-black pb-2 mb-4" style="color: black !important;">
+                    <div class="flex items-center gap-2">
+                        <img src="assets/logo.png" alt="MBB Logo" class="h-8 w-8 object-contain filter-primary-blue" style="filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;">
+                        <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 26px; color: #0033cc !important; line-height: 1; margin-bottom: 0;">${COMPANY_DETAILS.name}</h1>
+                    </div>
+                    <div class="text-right text-[10px] font-bold uppercase pb-1 mini-header-cont"></div>
+                </div>
+            `;
+
+            const clientHtml = isFirst ? `
+                <p class="text-center font-bold text-sm mb-6 uppercase tracking-widest border-y border-black py-1" style="color: black !important;">Client Ledger Statement</p>
+                <div class="mb-6 flex justify-between items-end border-b border-dashed border-gray-400 pb-4" style="color: black !important;">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase">Statement For:</label>
+                        <p class="text-xl font-black uppercase">${client.printName}</p>
+                        <p class="text-sm font-bold text-gray-700 mt-1">Period: ${data.from} to ${data.to}</p>
+                    </div>
+                    <div class="text-right text-sm">
+                        <p>Generated on: ${new Date().toLocaleDateString()}</p>
+                        <p class="font-bold text-lg mt-1">Status: <span class="${data.balance > 0 ? 'text-rose-700' : 'text-emerald-700'}">Balance ₹ ${data.balance.toLocaleString('en-IN')}</span></p>
+                    </div>
+                </div>
+            ` : '';
+
+            // FIX: Added 'main-tbody' to isolate targeting
+            pageDiv.innerHTML = `
+                ${headerHtml}
+                ${clientHtml}
+                <table class="w-full text-xs text-left border border-black bg-transparent" style="table-layout: fixed; border-collapse: collapse; color: black !important;">
+                    <colgroup>
+                        <col style="width: 15%;">
+                        <col style="width: 40%;">
+                        <col style="width: 15%;">
+                        <col style="width: 15%;">
+                        <col style="width: 15%;">
+                    </colgroup>
+                    <tbody class="align-top border-b border-black main-tbody">
+                        <tr class="border-b border-black font-bold uppercase bg-gray-50 print:bg-white">
+                            <th class="p-2 border-r border-black">Date</th>
+                            <th class="p-2 border-r border-black">Particulars / Description</th>
+                            <th class="p-2 border-r border-black text-right">Debit (₹)</th>
+                            <th class="p-2 border-r border-black text-right">Credit (₹)</th>
+                            <th class="p-2 text-right">Balance</th>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="flex-grow flex border-x border-b border-black text-xs box-border bg-white" style="margin-top: -1px;">
+                    <div style="width: 15%;" class="border-r border-black"></div>
+                    <div style="width: 40%;" class="border-r border-black"></div>
+                    <div style="width: 15%;" class="border-r border-black"></div>
+                    <div style="width: 15%;" class="border-r border-black"></div>
+                    <div style="width: 15%;"></div>
+                </div>
+                <div class="page-signatures flex flex-col justify-end mt-0"></div>
+                <div class="absolute bottom-2 right-4 text-[9px] font-bold text-gray-400 no-print page-number-stamp"></div>
+            `;
+
+            a4Container.appendChild(pageDiv);
+            currentPage = pageDiv;
+            currentTbody = pageDiv.querySelector('.main-tbody'); // Strict Targeting
+            pages.push(pageDiv);
+            pageIndex++;
+        }
+
+        createNewPage();
+
+        data.rows.forEach((r, i) => {
+            const isLastRow = (i === data.rows.length - 1);
+
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px dashed black';
+            if (r.isBf) tr.className = 'bg-gray-50';
+
+            tr.innerHTML = `
+                <td class="p-2 align-top break-words border-r border-black ${r.isBf ? 'italic' : ''}">${formatDate(r.date)}</td>
+                <td class="p-2 align-top break-words border-r border-black">
+                   <div class="font-bold ${r.isBf ? 'text-gray-600' : ''}">${r.label}</div>
+                   <div class="text-[9px] text-gray-600">${r.ref || ''}</div>
+                </td>
+                <td class="p-2 align-top text-right break-words border-r border-black">${r.dr ? r.dr.toLocaleString('en-IN') : ''}</td>
+                <td class="p-2 align-top text-right break-words border-r border-black">${r.cr ? r.cr.toLocaleString('en-IN') : ''}</td>
+                <td class="p-2 align-top text-right font-bold break-words">${r.bal.toLocaleString('en-IN')}</td>
+            `;
+
+            currentTbody.appendChild(tr);
+
+            const miniHeaderCont = currentPage.querySelector('.mini-header-cont');
+            if (miniHeaderCont) miniHeaderCont.innerText = `LEDGER STATEMENT (Cont.) | Page 99 of 99`;
+
+            const sigs = currentPage.querySelector('.page-signatures');
+            sigs.innerHTML = isLastRow ? stmtFooterHtml : stmtContHtml;
+
+            if (currentPage.offsetHeight > 1120 && currentTbody.children.length > 2) {
+                currentTbody.removeChild(tr);
+                sigs.innerHTML = stmtContHtml;
+                currentPage.style.minHeight = '297mm';
+
+                createNewPage();
+                currentTbody.appendChild(tr);
+                currentPage.querySelector('.page-signatures').innerHTML = isLastRow ? stmtFooterHtml : stmtContHtml;
+            }
+        });
+
+        currentPage.style.minHeight = '297mm';
+
+        pages.forEach((p, idx) => {
+            p.querySelector('.page-number-stamp').innerText = `Page ${idx + 1} of ${pages.length}`;
+            const miniHeaderCont = p.querySelector('.mini-header-cont');
+            if (miniHeaderCont) {
+                miniHeaderCont.innerText = `LEDGER STATEMENT (Cont.) | Page ${idx + 1} of ${pages.length}`;
+            }
+        });
 
         // ==========================================
         // 2. THERMAL LAYOUT FOR STATEMENTS
@@ -460,17 +632,14 @@ function openPrintPreview(type, data) {
                 <p class="text-[11px] font-bold">${COMPANY_DETAILS.phone1} | ${COMPANY_DETAILS.phone2}</p>
                 <p class="text-[10px]">${COMPANY_DETAILS.address}</p>
             </div>
-
             <div class="border-y border-dashed border-black py-2 mb-2 text-[11px]">
                 <div class="text-center font-bold text-[13px] uppercase tracking-wider mb-2">LEDGER STATEMENT</div>
                 <p><span class="font-bold">Client:</span> ${client.printName}</p>
                 <p><span class="font-bold">Period:</span> ${data.from} <br/>to ${data.to}</p>
             </div>
-
             <div class="mb-2">
                 ${thermalRowsHtml}
             </div>
-
             <div class="border-t-[1.5px] border-black pt-2 pb-4 text-[11px]">
                 <div class="flex justify-between font-black text-[13px] mb-2">
                     <span>CLOSING BAL:</span>
@@ -485,28 +654,52 @@ function openPrintPreview(type, data) {
             </div>
         </div>`;
 
-        html = `
-            <div class="a4-layout-container">${statementHtml}</div>
-            <div class="thermal-layout-container hidden" style="display: none;">${thermalStatementHtml}</div>
-        `;
+        const thermalContainer = document.createElement('div');
+        thermalContainer.className = 'thermal-layout-container hidden';
+        thermalContainer.style.display = 'none';
+        thermalContainer.innerHTML = thermalStatementHtml;
+        content.appendChild(thermalContainer);
     }
 
-    content.innerHTML = html;
-
-    // Reset to A4 by default when opening
-    setPrintLayout('a4');
-    view.classList.add('active');
-    document.getElementById('app-container').classList.add('hidden');
-
     setTimeout(() => {
-        setPrintScale('100%');
+        setPrintScale(window.currentScaleMode || '100%');
     }, 50);
 }
 
-// Global exports
+function updatePageHeightDebugger() {
+    const debugInput = document.getElementById('debug-page-heights');
+    if (!debugInput) return;
+
+    const isThermal = document.body.classList.contains('print-thermal');
+
+    if (isThermal) {
+        const container = document.getElementById('print-content');
+        debugInput.value = `Therm: ${container.offsetHeight}`;
+        debugInput.classList.remove('text-rose-400');
+        debugInput.classList.add('text-emerald-400');
+    } else {
+        const a4Pages = document.querySelectorAll('.a4-layout-container .preview-a4');
+        if (a4Pages.length > 0) {
+            const heights = Array.from(a4Pages).map(p => p.offsetHeight);
+            debugInput.value = heights.join(', ');
+
+            if (heights.some(h => h > 1125)) {
+                debugInput.classList.remove('text-emerald-400');
+                debugInput.classList.add('text-rose-400', 'font-bold');
+            } else {
+                debugInput.classList.remove('text-rose-400', 'font-bold');
+                debugInput.classList.add('text-emerald-400');
+            }
+        } else {
+            debugInput.value = 'N/A';
+        }
+    }
+}
+
 window.reprintDoc = reprintDoc;
 window.printStatement = printStatement;
 window.closePrintView = closePrintView;
 window.setPrintLayout = setPrintLayout;
 window.setPrintScale = setPrintScale;
 window.openPrintPreview = openPrintPreview;
+window.updatePageHeightDebugger = updatePageHeightDebugger;
