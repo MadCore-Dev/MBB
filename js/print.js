@@ -176,7 +176,7 @@ function openPrintPreview(type, data) {
         <div class="text-black font-sans w-full" style="box-sizing: border-box; overflow: visible;">
             <div class="flex items-center justify-between mb-1">
                 <div class="flex items-center justify-start w-1/4">
-                    <img src="assets/logo.png" alt="MBB Logo" class="w-20 h-20 object-contain filter-primary-blue" style="filter: invert(18%) sepia(99%) saturate(2740%) hue-rotate(213deg) brightness(93%) contrast(99%) !important;">
+                    <img src="assets/logo.png" alt="MBB Logo" class="w-20 h-20 object-contain filter-primary-blue" style="filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;">
                 </div>
                 <div class="text-center w-2/4">
                     <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 46px; color: #0033cc !important; line-height: 1; font-weight: normal; margin-bottom: 2px;">${COMPANY_DETAILS.name}</h1>
@@ -282,7 +282,7 @@ function openPrintPreview(type, data) {
         const thermalHtml = `
         <div class="font-sans text-black w-full" style="box-sizing: border-box;">
             <div class="text-center mb-3">
-                <img src="assets/logo.png" alt="MBB Logo" class="w-16 h-16 mx-auto mb-1 filter-primary-blue" style="filter: invert(18%) sepia(99%) saturate(2740%) hue-rotate(213deg) brightness(93%) contrast(99%) !important;">
+                <img src="assets/logo.png" alt="MBB Logo" class="w-16 h-16 mx-auto mb-1 filter-primary-blue" style="filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;">
                 <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 28px; color: #0033cc !important; line-height: 1; margin-bottom: 4px;">${COMPANY_DETAILS.name}</h1>
                 <p class="text-[11px] font-bold">${COMPANY_DETAILS.phone1} | ${COMPANY_DETAILS.phone2}</p>
                 <p class="text-[10px]">${COMPANY_DETAILS.address}</p>
@@ -373,7 +373,7 @@ function openPrintPreview(type, data) {
         <div class="text-black font-sans w-full" style="box-sizing: border-box; overflow: visible;">
             <div class="flex items-center justify-between mb-1">
                 <div class="flex items-center justify-start w-1/4">
-                    <img src="assets/logo.png" alt="MBB Logo" class="w-20 h-20 object-contain filter-primary-blue" style="filter: invert(18%) sepia(99%) saturate(2740%) hue-rotate(213deg) brightness(93%) contrast(99%) !important;">
+                    <img src="assets/logo.png" alt="MBB Logo" class="w-20 h-20 object-contain filter-primary-blue" style="filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;">
                 </div>
                 <div class="text-center w-2/4">
                     <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 46px; color: #0033cc !important; line-height: 1; font-weight: normal; margin-bottom: 2px;">${COMPANY_DETAILS.name}</h1>
@@ -455,7 +455,7 @@ function openPrintPreview(type, data) {
         const thermalStatementHtml = `
         <div class="font-sans text-black w-full" style="box-sizing: border-box;">
             <div class="text-center mb-3">
-                <img src="assets/logo.png" alt="MBB Logo" class="w-16 h-16 mx-auto mb-1 filter-primary-blue" style="filter: invert(18%) sepia(99%) saturate(2740%) hue-rotate(213deg) brightness(93%) contrast(99%) !important;">
+                <img src="assets/logo.png" alt="MBB Logo" class="w-16 h-16 mx-auto mb-1 filter-primary-blue" style="filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;">
                 <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 28px; color: #0033cc !important; line-height: 1; margin-bottom: 4px;">${COMPANY_DETAILS.name}</h1>
                 <p class="text-[11px] font-bold">${COMPANY_DETAILS.phone1} | ${COMPANY_DETAILS.phone2}</p>
                 <p class="text-[10px]">${COMPANY_DETAILS.address}</p>

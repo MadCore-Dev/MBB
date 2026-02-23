@@ -144,9 +144,9 @@
 }
 
 /* Dynamic Logo Coloring */
-/* Mathematically transforms solid black into Tailwind primary-600 (#2563eb) blue */
+/* Forces white to black, then transforms it into #0033cc blue */
 .filter-primary-blue {
-    filter: invert(36%) sepia(87%) saturate(2462%) hue-rotate(210deg) brightness(97%) contrast(92%);
+    filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;
 }
 
 /* Modals & Custom Scrollbars */
