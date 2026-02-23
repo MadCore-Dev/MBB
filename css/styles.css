@@ -1,0 +1,129 @@
+/* PRINT ENGINE - Strictly Black & White */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+
+            html,
+            body {
+                background: white !important;
+                color: black !important;
+                margin: 0;
+                padding: 0;
+            }
+
+            #app-container {
+                display: none !important;
+            }
+
+            #print-view {
+                display: block !important;
+                background: white !important;
+            }
+
+            body.print-a4 #print-content {
+                width: 210mm;
+                padding: 15mm;
+                margin: auto;
+                font-size: 14px;
+            }
+
+            body.print-thermal #print-content {
+                width: 80mm;
+                padding: 5mm;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 11px;
+                line-height: 1.2;
+                color: black;
+            }
+
+            body.print-thermal .thermal-hide {
+                display: none !important;
+            }
+
+            body.print-thermal table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            body.print-thermal th,
+            body.print-thermal td {
+                border-bottom: 1px dashed black;
+                padding: 2px 0;
+            }
+        }
+
+        #print-view {
+            display: none;
+        }
+        #print-view.active {
+            display: block !important;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+        }
+
+        .preview-a4 {
+            max-width: 210mm;
+            background: white;
+            padding: 20mm;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            margin: 0 auto;
+            min-height: 297mm;
+            color: black;
+        }
+
+        .preview-thermal {
+            max-width: 80mm;
+            background: white;
+            padding: 5mm;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            margin: 0 auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11px;
+            color: black;
+        }
+
+        .preview-thermal .thermal-hide {
+            display: none;
+        }
+
+        .preview-thermal th,
+        .preview-thermal td {
+            border-bottom: 1px dashed #ccc;
+            padding: 4px 0;
+        }
+
+        /* Modals & Custom Scrollbars */
+        .modal-active {
+            overflow: hidden;
+        }
+
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #334155;
+        }
+
+        .theme-transition {
+            transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        }

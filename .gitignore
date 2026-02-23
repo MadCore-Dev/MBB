@@ -1,0 +1,17 @@
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS related files
+.DS_Store
+Thumbs.db
+
+# Project specific
+.gemini/
+*.log
+node_modules/
+package-lock.json
+dist/
+build/

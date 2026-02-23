@@ -1,0 +1,655 @@
+// --- MAIN UI REFRESH ---
+function refreshUI() { 
+    populateDatalists(); 
+    renderWorkEntriesList(); 
+    renderInvoices(); 
+    renderQuotes(); 
+    renderPayments(); 
+    renderClients(); 
+}
+
+// --- DETAILS POPUP ---
+function showDetails(type, id) {
+    const modalBody = document.getElementById('modal-details-body');
+    const modalTitle = document.getElementById('modal-details-title');
+    const modalFooter = document.getElementById('modal-details-footer');
+    if (!modalBody || !modalTitle || !modalFooter) return;
+
+    let html = ''; modalFooter.classList.add('hidden'); modalFooter.innerHTML = '';
+    
+    if (type === 'WE') {
+        const item = appDB.work_entries.find(w => w.entryId === id);
+        if (!item) return;
+        const client = getClientById(item.clientId);
+        const isBilled = item.status === 'BILLED';
+        modalTitle.innerText = "Work Entry Detail";
+        html = `
+        <div class="space-y-3">
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">CLIENT</span><span class="font-bold">${client.shortName}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">VEHICLE</span><span class="font-bold uppercase">${item.vehicle}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">DATE</span><span class="font-bold">${formatDate(item.date)}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">STATUS</span><span class="px-2 py-0.5 rounded-full text-[10px] font-black ${isBilled ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${item.status}</span></div>
+           <div class="pt-2"><p class="text-[10px] font-bold text-slate-400 uppercase mb-2">WORK ITEMS</p>
+              <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 space-y-2">
+                 ${item.items.map(it => `<div class="flex justify-between text-xs"><span>${it.workDone}</span><span class="font-bold">₹${it.cost}</span></div>`).join('')}
+                 <div class="border-t pt-2 flex justify-between font-bold text-primary-600"><span>TOTAL</span><span>₹${item.totalCost}</span></div>
+              </div>
+           </div>
+           ${isBilled ? `<p class="text-[10px] text-rose-500 font-bold bg-rose-50 dark:bg-rose-900/10 p-2 rounded-lg mt-2 italic text-center">Billed Entry: Edit/Delete disabled. Delete related invoice first.</p>` : ''}
+        </div>`;
+        if (!isBilled) {
+            modalFooter.innerHTML = `<button onclick="deleteWE('${item.entryId}')" class="text-rose-500 font-bold px-4 py-2 hover:bg-rose-50 rounded-lg">Delete</button>
+                                     <button onclick="editWE('${item.entryId}')" class="bg-slate-800 text-white px-6 py-2 rounded-xl">Edit</button>`;
+            modalFooter.classList.remove('hidden');
+        }
+    } else if (type === 'INV') {
+        const item = appDB.documents.find(d => d.docId === id);
+        if (!item) return;
+        const client = getClientById(item.clientId);
+        const isLocked = item.status === 'LOCKED';
+        modalTitle.innerText = "Invoice Detail";
+        html = `
+        <div class="space-y-3">
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">DOC NO</span><span class="font-bold">${item.docNumber}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">CLIENT</span><span class="font-bold">${client.shortName}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">DATE</span><span class="font-bold">${formatDate(item.date)}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">TOTAL</span><span class="font-black">₹${Math.round(item.grandTotal)}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">STATUS</span><span class="px-2 py-0.5 rounded-full text-[10px] font-black ${isLocked ? 'bg-slate-800 text-white' : 'bg-amber-100 text-amber-700'}">${item.status}</span></div>
+        </div>`;
+        modalFooter.innerHTML = `
+            <button onclick="deleteInvoice('${item.docId}')" class="text-rose-500 font-bold px-4 py-2 hover:bg-rose-50 rounded-lg ${isLocked ? 'hidden' : ''}">Delete</button>
+            <button onclick="reprintDoc('${item.docId}')" class="bg-primary-600 text-white px-6 py-2 rounded-xl">Print / Preview</button>
+            <button onclick="lockInvoice('${item.docId}', ${!isLocked})" class="bg-slate-800 text-white px-6 py-2 rounded-xl">${isLocked ? 'Unlock' : 'Lock & Send'}</button>
+        `;
+        modalFooter.classList.remove('hidden');
+    } else if (type === 'QUOTE') {
+        const item = appDB.documents.find(d => d.docId === id);
+        if (!item) return;
+        const client = getClientById(item.clientId);
+        modalTitle.innerText = "Quotation Detail";
+        html = `
+        <div class="space-y-3">
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">EST NO</span><span class="font-bold">${item.docNumber}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">CLIENT</span><span class="font-bold">${client.shortName}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">VEHICLE</span><span class="font-bold uppercase">${item.lineItems[0] ? item.lineItems[0].vehicle : '--'}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">TOTAL</span><span class="font-black">₹${item.grandTotal}</span></div>
+        </div>`;
+        modalFooter.innerHTML = `
+            <button onclick="deleteQuote('${item.docId}')" class="text-rose-500 font-bold px-4 py-2 hover:bg-rose-50 rounded-lg">Delete</button>
+            <button onclick="reprintDoc('${item.docId}')" class="bg-primary-600 text-white px-6 py-2 rounded-xl">Print</button>
+        `;
+        modalFooter.classList.remove('hidden');
+    } else if (type === 'PAY') {
+        const item = appDB.payments.find(p => p.paymentId === id);
+        if (!item) return;
+        const client = getClientById(item.clientId);
+        modalTitle.innerText = "Payment Detail";
+        html = `
+        <div class="space-y-3">
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">DATE</span><span class="font-bold">${formatDate(item.date)}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">CLIENT</span><span class="font-bold">${client.shortName}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">METHOD</span><span class="font-bold italic">${item.method}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">AMOUNT</span><span class="font-black text-emerald-600">₹${item.amount}</span></div>
+        </div>`;
+        modalFooter.innerHTML = `<button onclick="deletePayment('${item.paymentId}')" class="text-rose-500 font-bold px-4 py-2 hover:bg-rose-50 rounded-lg">Delete</button>`;
+        modalFooter.classList.remove('hidden');
+    } else if (type === 'CLIENT') {
+        const item = appDB.clients.find(c => c.clientId === id);
+        if (!item) return;
+        modalTitle.innerText = "Client Detail";
+        html = `
+        <div class="space-y-3">
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">SHORT NAME</span><span class="font-bold">${item.shortName}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">PRINT NAME</span><span class="font-bold">${item.printName}</span></div>
+           <div><p class="text-[10px] font-bold text-slate-400 uppercase mb-1">ADDRESS</p><p class="bg-slate-50 dark:bg-slate-800 p-2 rounded-xl text-xs">${item.address || "N/A"}</p></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">GSTIN</span><span class="font-mono font-bold">${item.gstin || "N/A"}</span></div>
+        </div>`;
+        modalFooter.innerHTML = `<button onclick="editClient('${item.clientId}')" class="bg-slate-800 text-white px-6 py-2 rounded-xl">Edit Data</button>`;
+        modalFooter.classList.remove('hidden');
+    }
+    
+    modalBody.innerHTML = html;
+    openModal('modal-details');
+}
+
+// --- CORE DATA HELPERS ---
+function populateDatalists() {
+    const clientList = document.getElementById('client-datalist');
+    if (clientList) clientList.innerHTML = appDB.clients.map(c => `<option value="${c.shortName}">`).join('');
+    
+    const workHistory = document.getElementById('work-history-list');
+    if (workHistory) {
+        let uniqueWorks = new Set();
+        appDB.work_entries.forEach(w => w.items.forEach(it => uniqueWorks.add(it.workDone)));
+        workHistory.innerHTML = Array.from(uniqueWorks).map(w => `<option value="${w}">`).join('');
+    }
+}
+
+function getClientIdByName(name) { 
+    const c = appDB.clients.find(c => c.shortName.toLowerCase() === name.toLowerCase()); 
+    return c ? c.clientId : null; 
+}
+
+function getClientById(id) { 
+    return appDB.clients.find(c => c.clientId === id) || { shortName: "Unknown", printName: "Unknown", address: "", gstin: "" }; 
+}
+
+function formatDate(iso) { 
+    if (!iso) return ""; 
+    const d = new Date(iso); 
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); 
+}
+
+// --- TAB 1: WORK ENTRIES ---
+function openWorkEntryModal() {
+    document.getElementById('we-edit-id').value = '';
+    document.getElementById('we-linked-quote').value = '';
+    document.getElementById('modal-we-title').innerText = "Add Vehicle Entry";
+    document.getElementById('we-client').value = '';
+    document.getElementById('we-vehicle').value = '';
+    draftWorkItems = [];
+    renderWEItemsTable();
+    openModal('modal-we');
+}
+
+function addWorkSubItem() {
+    const desc = document.getElementById('we-work').value;
+    const cost = parseFloat(document.getElementById('we-cost').value);
+    if (!desc || isNaN(cost)) return;
+    draftWorkItems.push({ workDone: desc.toUpperCase(), cost: cost });
+    document.getElementById('we-work').value = '';
+    document.getElementById('we-cost').value = '';
+    renderWEItemsTable();
+}
+
+function removeWorkSubItem(idx) {
+    draftWorkItems.splice(idx, 1);
+    renderWEItemsTable();
+}
+
+function renderWEItemsTable() {
+    const tbody = document.getElementById('we-draft-tbody');
+    let total = 0;
+    tbody.innerHTML = draftWorkItems.map((it, idx) => {
+        total += it.cost;
+        return `<tr><td class="p-3">${it.workDone}</td><td class="p-3 text-right">₹${it.cost}</td><td class="p-3 text-center"><button onclick="removeWorkSubItem(${idx})" class="text-rose-500 font-bold">×</button></td></tr>`;
+    }).join('');
+    document.getElementById('we-draft-total').innerText = total.toFixed(2);
+}
+
+function saveWorkEntry() {
+    const date = document.getElementById('we-date').value;
+    const clientName = document.getElementById('we-client').value;
+    const vehicle = document.getElementById('we-vehicle').value.toUpperCase();
+    const editId = document.getElementById('we-edit-id').value;
+    const clientId = getClientIdByName(clientName);
+
+    if (!clientId) return alert("Select valid client");
+    if (!vehicle) return alert("Vehicle required");
+    if (draftWorkItems.length === 0) return alert("Add at least one work item");
+
+    const total = draftWorkItems.reduce((acc, it) => acc + it.cost, 0);
+    const entryData = { date, clientId, vehicle, items: [...draftWorkItems], totalCost: total };
+
+    if (editId) {
+        const idx = appDB.work_entries.findIndex(w => w.entryId === editId);
+        appDB.work_entries[idx] = { ...appDB.work_entries[idx], ...entryData };
+    } else {
+        appDB.work_entries.push({ entryId: 'WE-' + Date.now(), ...entryData, status: 'UNBILLED', docId: null });
+    }
+
+    saveDB(); refreshUI(); closeAllModals();
+}
+
+function clearWEFilters() {
+    document.getElementById('filter-we-client').value = '';
+    document.getElementById('filter-we-status').value = 'ALL';
+    renderWorkEntriesList();
+}
+
+function renderWorkEntriesList() {
+    const month = document.getElementById('filter-we-month').value;
+    const clientName = document.getElementById('filter-we-client').value;
+    const status = document.getElementById('filter-we-status').value;
+    const clientId = clientName ? getClientIdByName(clientName) : null;
+
+    let filtered = appDB.work_entries.filter(w => {
+        if (month && !w.date.startsWith(month)) return false;
+        if (clientId && w.clientId !== clientId) return false;
+        if (status !== 'ALL' && w.status !== status) return false;
+        return true;
+    }).sort((a,b) => b.date.localeCompare(a.date));
+
+    const tbody = document.getElementById('we-list-tbody');
+    tbody.innerHTML = filtered.map(w => {
+        const c = getClientById(w.clientId);
+        const isBilled = w.status === 'BILLED';
+        const cb = isBilled ? '' : `<input type="checkbox" data-id="${w.entryId}" onchange="updateBulkBillButton()" class="we-checkbox w-4 h-4 rounded text-primary-600 block mx-auto">`;
+        return `
+        <tr class="hidden md:table-row border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors pointer shadow-sm" onclick="showDetails('WE', '${w.entryId}')">
+            <td class="p-4 text-center" onclick="event.stopPropagation()">${cb}</td>
+            <td class="p-4 font-medium">${formatDate(w.date)}</td>
+            <td class="p-4">
+               <div class="font-bold text-slate-900 dark:text-white">${c.shortName}</div>
+               <div class="text-[10px] text-slate-400 truncate w-32">${c.printName}</div>
+            </td>
+            <td class="p-4 uppercase font-bold text-primary-600">${w.vehicle}</td>
+            <td class="p-4 text-right font-black">₹${w.totalCost}</td>
+            <td class="p-4 text-center" onclick="event.stopPropagation()">${isBilled ? '<span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-bold">BILLED</span>' : '<button onclick="deleteWE(\''+w.entryId+'\')" class="text-slate-300 hover:text-rose-500 transition-colors p-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>'}</td>
+        </tr>
+        <div class="md:hidden bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm" onclick="showDetails('WE', '${w.entryId}')">
+            <div class="flex justify-between items-start">
+               <div class="flex items-center gap-3">
+                  <div onclick="event.stopPropagation()">${cb}</div>
+                  <div><p class="text-[10px] text-slate-400 font-bold uppercase">${formatDate(w.date)}</p><p class="font-bold text-slate-900 dark:text-white">${c.shortName}</p></div>
+               </div>
+               <div class="text-right"><p class="font-extrabold text-primary-600">${w.vehicle}</p><p class="font-black">₹${w.totalCost}</p></div>
+            </div>
+        </div>`;
+    }).join('');
+    updateBulkBillButton();
+}
+
+function editWE(id) {
+    const w = appDB.work_entries.find(e => e.entryId === id); if (!w) return;
+    if (w.status === 'BILLED') return alert("Billed entry cannot be edited. Delete the related invoice first.");
+    closeAllModals(); 
+    openWorkEntryModal();
+    document.getElementById('we-edit-id').value = w.entryId;
+    document.getElementById('we-date').value = w.date;
+    document.getElementById('we-client').value = getClientById(w.clientId).shortName;
+    document.getElementById('we-vehicle').value = w.vehicle;
+    document.getElementById('modal-we-title').innerText = "Edit Vehicle Entry";
+    draftWorkItems = [...w.items];
+    renderWEItemsTable();
+}
+
+function deleteWE(id) {
+    const w = appDB.work_entries.find(e => e.entryId === id);
+    if (w && w.status === 'BILLED') return alert("This entry is attached to an invoice. Delete the invoice first.");
+    if (!confirm("Delete this entry?")) return;
+    appDB.work_entries = appDB.work_entries.filter(w => w.entryId !== id);
+    saveDB(); refreshUI(); closeAllModals();
+}
+
+function toggleAllWE(cb) {
+    document.querySelectorAll('.we-checkbox').forEach(el => el.checked = cb.checked);
+    updateBulkBillButton();
+}
+
+function updateBulkBillButton() {
+    const checked = document.querySelectorAll('.we-checkbox:checked');
+    const btn = document.getElementById('btn-generate-bill');
+    if (checked.length > 0) {
+        btn.disabled = false; btn.innerText = `Generate Bill for ${checked.length} Items`;
+        btn.classList.replace('bg-slate-200', 'bg-emerald-600'); btn.classList.replace('text-slate-400', 'text-white'); btn.classList.remove('cursor-not-allowed');
+    } else {
+        btn.disabled = true; btn.innerText = "Select Entries to Bill";
+        btn.classList.replace('bg-emerald-600', 'bg-slate-200'); btn.classList.replace('text-white', 'text-slate-400'); btn.classList.add('cursor-not-allowed');
+    }
+}
+
+function bulkGenerateBill() {
+    const selectedIds = Array.from(document.querySelectorAll('.we-checkbox:checked')).map(el => el.dataset.id);
+    const selectedEntries = appDB.work_entries.filter(w => selectedIds.includes(w.entryId));
+    
+    // Validate same client
+    const clientIds = new Set(selectedEntries.map(e => e.clientId));
+    if (clientIds.size > 1) return alert("Select entries for the same client");
+
+    const cid = Array.from(clientIds)[0];
+    let tax = 0; let lineItems = [];
+    selectedEntries.forEach(w => {
+        w.status = 'BILLED';
+        w.items.forEach(it => {
+            tax += it.cost;
+            lineItems.push({ date: w.date, vehicle: w.vehicle, workDone: it.workDone, cost: it.cost });
+        });
+    });
+
+    const docId = 'DOC-' + Date.now();
+    selectedEntries.forEach(w => w.docId = docId);
+    
+    appDB.documents.push({
+        docId: docId, type: 'INVOICE', docNumber: 'DRAFT',
+        clientId: cid, date: new Date().toISOString().split('T')[0], status: 'DRAFT',
+        lineItems: lineItems, taxable: tax, cgst: tax * 0.09, sgst: tax * 0.09, grandTotal: tax * 1.18
+    });
+
+    saveDB(); refreshUI(); switchTab('bills');
+}
+
+// --- TAB 2: INVOICES ---
+function clearInvFilters() {
+    document.getElementById('filter-inv-client').value = '';
+    document.getElementById('filter-inv-status').value = 'ALL';
+    renderInvoices();
+}
+
+function renderInvoices() {
+    const month = document.getElementById('filter-inv-month').value;
+    const clientName = document.getElementById('filter-inv-client').value;
+    const status = document.getElementById('filter-inv-status').value;
+    const clientId = clientName ? getClientIdByName(clientName) : null;
+
+    let filtered = appDB.documents.filter(d => d.type === 'INVOICE').filter(d => {
+        if (month && !d.date.startsWith(month)) return false;
+        if (clientId && d.clientId !== clientId) return false;
+        if (status !== 'ALL' && d.status !== status) return false;
+        return true;
+    }).sort((a,b) => b.date.localeCompare(a.date));
+
+    const tbody = document.getElementById('past-bills-tbody');
+    tbody.innerHTML = filtered.map(d => {
+        const c = getClientById(d.clientId);
+        const isLocked = d.status === 'LOCKED';
+        const opt = [
+            { label: 'Print / Preview', onClick: `reprintDoc('${d.docId}')`, classes: 'text-primary-600' },
+            { label: isLocked ? 'Unlock Invoice' : 'Lock & Send', onClick: `lockInvoice('${d.docId}', ${!isLocked})`, classes: isLocked ? 'text-amber-600' : 'text-emerald-600' },
+            { label: 'Delete Invoice', onClick: `deleteInvoice('${d.docId}')`, classes: 'text-rose-600' }
+        ];
+        return `
+        <tr class="hidden md:table-row border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 pointer transition-colors" onclick="showDetails('INV', '${d.docId}')">
+            <td class="p-4 font-bold text-slate-500">${d.docNumber}</td>
+            <td class="p-4">${formatDate(d.date)}</td>
+            <td class="p-4">
+                <div class="font-bold">${c.shortName}</div>
+                <div class="text-[10px] text-slate-400">${c.printName}</div>
+            </td>
+            <td class="p-4"><span class="px-2 py-1 rounded-full text-[10px] font-black ${isLocked ? 'bg-slate-800 text-white' : 'bg-amber-100 text-amber-700'}">${d.status}</span></td>
+            <td class="p-4 text-right font-black">₹${Math.round(d.grandTotal)}</td>
+            <td class="p-4 text-center" onclick="event.stopPropagation()">${createKebabMenu('kb-'+d.docId, opt)}</td>
+        </tr>
+        <div class="md:hidden bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm" onclick="showDetails('INV', '${d.docId}')">
+           <div class="flex justify-between items-start mb-3">
+              <div><p class="text-[10px] text-slate-400 font-bold uppercase">${d.docNumber} | ${formatDate(d.date)}</p><p class="font-black text-slate-900 dark:text-white">${c.shortName}</p></div>
+              <div class="text-right font-black text-lg">₹${Math.round(d.grandTotal)}</div>
+           </div>
+           <div class="flex justify-between items-center pt-3 border-t">
+              <span class="px-2 py-1 rounded-full text-[10px] font-black ${isLocked ? 'bg-slate-800 text-white' : 'bg-amber-100 text-amber-700'}">${d.status}</span>
+              <div onclick="event.stopPropagation()">${createKebabMenu('kbm-'+d.docId, opt)}</div>
+           </div>
+        </div>`;
+    }).join('');
+}
+
+function lockInvoice(id, lock) {
+    const d = appDB.documents.find(doc => doc.docId === id);
+    if (d) {
+        if (lock && d.docNumber === 'DRAFT') {
+            const nextNo = 1000 + appDB.documents.filter(doc => doc.type === 'INVOICE' && doc.docNumber !== 'DRAFT').length + 1;
+            d.docNumber = 'INV-' + nextNo;
+        }
+        d.status = lock ? 'LOCKED' : 'DRAFT';
+        saveDB(); renderInvoices();
+    }
+}
+
+function deleteInvoice(id) {
+    const d = appDB.documents.find(doc => doc.docId === id);
+    if (d && d.status === 'LOCKED') return alert("Locked invoices cannot be deleted. Unlock them first.");
+    if (!confirm("Delete Invoice? Related work entries will become UNBILLED.")) return;
+    appDB.work_entries.forEach(w => { if (w.docId === id) { w.status = 'UNBILLED'; w.docId = null; } });
+    appDB.documents = appDB.documents.filter(d => d.docId !== id);
+    saveDB(); refreshUI(); closeAllModals();
+}
+
+// --- TAB 3: QUOTATIONS ---
+function openQuoteModal() {
+    draftQuoteItems = [];
+    document.getElementById('quote-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('quote-client').value = '';
+    document.getElementById('quote-vehicle').value = '';
+    renderQuoteDraftTable();
+    openModal('modal-quote');
+}
+
+function addQuoteItem() {
+    const desc = document.getElementById('quote-item-desc').value;
+    const cost = parseFloat(document.getElementById('quote-item-cost').value);
+    const vehicle = document.getElementById('quote-vehicle').value.toUpperCase();
+    if (!desc || isNaN(cost)) return;
+    draftQuoteItems.push({ vehicle, workDone: desc.toUpperCase(), cost });
+    document.getElementById('quote-item-desc').value = '';
+    document.getElementById('quote-item-cost').value = '';
+    renderQuoteDraftTable();
+}
+
+function removeQuoteItem(idx) {
+    draftQuoteItems.splice(idx, 1);
+    renderQuoteDraftTable();
+}
+
+function renderQuoteDraftTable() {
+    const tbody = document.getElementById('quote-draft-tbody');
+    tbody.innerHTML = draftQuoteItems.map((it, idx) => `<tr><td class="p-3">
+       <div class="text-[10px] text-slate-400 font-bold">${it.vehicle}</div>
+       <div>${it.workDone}</div>
+    </td><td class="p-3 text-right font-bold">₹${it.cost}</td><td class="p-3 text-center"><button onclick="removeQuoteItem(${idx})" class="text-rose-500">×</button></td></tr>`).join('');
+}
+
+function generateQuote() {
+    const date = document.getElementById('quote-date').value;
+    const clientName = document.getElementById('quote-client').value;
+    const clientId = getClientIdByName(clientName);
+    if (!clientId || draftQuoteItems.length === 0) return alert("Required data missing");
+    
+    const tax = draftQuoteItems.reduce((acc, it) => acc + it.cost, 0);
+    const docData = {
+        docId: 'DOC-Q' + Date.now(), type: 'QUOTATION', docNumber: 'EST-' + (5000 + appDB.documents.filter(d => d.type === 'QUOTATION').length),
+        clientId, date, lineItems: [...draftQuoteItems], taxable: tax, cgst: 0, sgst: 0, grandTotal: tax
+    };
+    appDB.documents.push(docData);
+    saveDB(); refreshUI(); closeAllModals(); 
+    openPrintPreview('QUOTATION', docData);
+}
+
+function renderQuotes() {
+    const tbody = document.getElementById('past-quotes-tbody');
+    const quotes = appDB.documents.filter(d => d.type === 'QUOTATION').sort((a,b) => b.date.localeCompare(a.date));
+    tbody.innerHTML = quotes.map(q => {
+        const c = getClientById(q.clientId);
+        const opt = [
+            { label: 'Print View', onClick: `reprintDoc('${q.docId}')`, classes: 'text-primary-600' },
+            { label: 'Delete Quotation', onClick: `deleteQuote('${q.docId}')`, classes: 'text-rose-600' }
+        ];
+        return `
+        <tr class="hidden md:table-row border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 pointer transition-colors" onclick="showDetails('QUOTE', '${q.docId}')">
+            <td class="p-4 font-medium">${formatDate(q.date)}</td>
+            <td class="p-4"><div class="font-bold">${c.shortName}</div></td>
+            <td class="p-4 italic text-xs">${q.lineItems[0] ? q.lineItems[0].vehicle : '--'}</td>
+            <td class="p-4 text-center font-bold text-[10px]">${q.isConverted ? 'CONVERTED' : 'PENDING'}</td>
+            <td class="p-4 text-right font-black">₹${q.grandTotal}</td>
+            <td class="p-4 text-center" onclick="event.stopPropagation()">${createKebabMenu('kbq-'+q.docId, opt)}</td>
+        </tr>
+        <div class="md:hidden bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm" onclick="showDetails('QUOTE', '${q.docId}')">
+           <div class="flex justify-between items-start mb-2">
+              <div><p class="text-[10px] text-slate-400 font-bold uppercase">${formatDate(q.date)}</p><p class="font-bold text-slate-900 dark:text-white">${c.shortName}</p></div>
+              <div class="text-right font-black">₹${q.grandTotal}</div>
+           </div>
+           <div class="flex justify-between items-center border-t pt-3">
+              <span class="text-[9px] font-bold text-slate-400">${q.lineItems[0] ? q.lineItems[0].vehicle : ''}</span>
+              <div onclick="event.stopPropagation()">${createKebabMenu('kbqm-'+q.docId, opt)}</div>
+           </div>
+        </div>`;
+    }).join('');
+}
+
+function deleteQuote(id) {
+    if (!confirm("Delete this quotation?")) return;
+    appDB.documents = appDB.documents.filter(d => d.docId !== id);
+    saveDB(); renderQuotes();
+}
+
+// --- TAB 4: PAYMENTS ---
+function savePayment() {
+    const date = document.getElementById('pay-date').value;
+    const clientName = document.getElementById('pay-client').value;
+    const amount = parseFloat(document.getElementById('pay-amount').value);
+    const method = document.getElementById('pay-method').value;
+    const clientId = getClientIdByName(clientName);
+    if (!clientId || isNaN(amount)) return alert("Required data missing");
+    
+    appDB.payments.push({ paymentId: 'PAY-'+Date.now(), date, clientId, amount, method });
+    saveDB(); refreshUI();
+    document.getElementById('pay-amount').value = '';
+}
+
+function renderPayments() {
+    const tbody = document.getElementById('payments-tbody');
+    tbody.innerHTML = appDB.payments.sort((a,b) => b.date.localeCompare(a.date)).map(p => {
+        const c = getClientById(p.clientId);
+        return `
+        <tr class="hidden md:table-row border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 pointer transition-colors" onclick="showDetails('PAY', '${p.paymentId}')">
+            <td class="p-4 underline">${formatDate(p.date)}</td>
+            <td class="p-4 font-bold text-slate-700 dark:text-slate-200">${c.shortName}</td>
+            <td class="p-4 italic">${p.method}</td>
+            <td class="p-4 text-right font-black text-emerald-600">₹${p.amount}</td>
+            <td class="p-4 text-center" onclick="event.stopPropagation()"><button onclick="deletePayment('${p.paymentId}')" class="text-slate-300 hover:text-rose-500 p-2">×</button></td>
+        </tr>
+        <div class="md:hidden bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex justify-between items-center" onclick="showDetails('PAY', '${p.paymentId}')">
+           <div><p class="text-[10px] text-slate-400 font-bold uppercase">${formatDate(p.date)}</p><p class="font-bold">${c.shortName}</p><p class="text-[10px] italic">${p.method}</p></div>
+           <div class="flex items-center gap-4"><p class="font-black text-emerald-600">₹${p.amount}</p><button onclick="deletePayment('${p.paymentId}')" class="text-rose-500" onclick="event.stopPropagation()">×</button></div>
+        </div>`;
+    }).join('');
+}
+
+function deletePayment(id) {
+    if (!confirm("Delete this payment?")) return;
+    appDB.payments = appDB.payments.filter(p => p.paymentId !== id);
+    saveDB(); renderPayments();
+}
+
+// --- TAB 5: STATEMENTS ---
+function generateStatement() {
+    const clientName = document.getElementById('stmt-client').value;
+    const fromDate = document.getElementById('stmt-from').value;
+    const toDate = document.getElementById('stmt-to').value;
+    const clientId = getClientIdByName(clientName);
+    if (!clientId) return alert("Select Client");
+
+    const bills = appDB.documents.filter(d => d.type === 'INVOICE' && d.clientId === clientId && d.date >= fromDate && d.date <= toDate);
+    const pays = appDB.payments.filter(p => p.clientId === clientId && p.date >= fromDate && p.date <= toDate);
+
+    let rows = [];
+    bills.forEach(d => rows.push({ date: d.date, label: 'Tax Invoice', ref: d.docNumber, dr: d.grandTotal, cr: 0 }));
+    pays.forEach(p => rows.push({ date: p.date, label: 'Payment Received', ref: p.method, dr: 0, cr: p.amount }));
+    rows.sort((a, b) => a.date.localeCompare(b.date));
+
+    let balance = 0;
+    rows.forEach(r => { balance += (r.dr - r.cr); r.bal = balance; });
+
+    document.getElementById('stmt-balance').innerText = balance.toLocaleString('en-IN');
+    const tbody = document.getElementById('stmt-tbody');
+    tbody.innerHTML = rows.map(r => `
+    <tr class="hidden md:table-row border-b border-slate-100 dark:border-slate-800">
+        <td class="p-4">${formatDate(r.date)}</td>
+        <td class="p-4"><p class="font-bold">${r.label}</p><p class="text-[10px] text-slate-400">${r.ref}</p></td>
+        <td class="p-4 text-right text-rose-600 font-bold">${r.dr ? '₹'+r.dr : '--'}</td>
+        <td class="p-4 text-right text-emerald-600 font-bold">${r.cr ? '₹'+r.cr : '--'}</td>
+        <td class="p-4 text-right font-black">₹${r.bal}</td>
+    </tr>
+    <div class="md:hidden bg-slate-50 dark:bg-slate-800 p-4 border-b border-slate-200 dark:border-slate-700">
+       <div class="flex justify-between items-start mb-2">
+          <div><p class="text-[9px] font-bold text-slate-400 mb-1">${formatDate(r.date)} | ${r.label}</p><p class="text-[10px] font-bold italic">${r.ref}</p></div>
+          <p class="font-bold text-xs">Bal: ₹${r.bal}</p>
+       </div>
+       <div class="flex justify-end gap-3 text-xs">
+          ${r.dr ? '<span class="text-rose-600">Dr: ₹'+r.dr+'</span>' : ''}
+          ${r.cr ? '<span class="text-emerald-600">Cr: ₹'+r.cr+'</span>' : ''}
+       </div>
+    </div>`).join('');
+    
+    document.getElementById('stmt-view-area').classList.remove('hidden');
+    window.printPayload = { type: 'STATEMENT', clientId, from: fromDate, to: toDate, rows, balance };
+}
+
+// --- TAB 6: CLIENTS ---
+function openClientModal() {
+    document.getElementById('client-edit-id').value = '';
+    document.getElementById('client-short').value = '';
+    document.getElementById('client-print').value = '';
+    document.getElementById('client-address').value = '';
+    document.getElementById('client-gstin').value = '';
+    openModal('modal-client');
+}
+
+function saveClient() {
+    const s = document.getElementById('client-short').value;
+    const p = document.getElementById('client-print').value;
+    const a = document.getElementById('client-address').value;
+    const g = document.getElementById('client-gstin').value.toUpperCase();
+    const id = document.getElementById('client-edit-id').value;
+    if (!s || !p) return alert("Missing data");
+
+    if (id) {
+        const idx = appDB.clients.findIndex(c => c.clientId === id);
+        appDB.clients[idx] = { ...appDB.clients[idx], shortName: s, printName: p, address: a, gstin: g };
+    } else {
+        appDB.clients.push({ clientId: 'C-' + Date.now(), shortName: s, printName: p, address: a, gstin: g });
+    }
+    saveDB(); refreshUI(); closeAllModals();
+}
+
+function renderClients() {
+    const tbody = document.getElementById('clients-tbody');
+    tbody.innerHTML = appDB.clients.map(c => `
+    <tr class="hidden md:table-row border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 pointer transition-colors" onclick="showDetails('CLIENT', '${c.clientId}')">
+        <td class="p-4 font-bold">${c.shortName}</td>
+        <td class="p-4">${c.printName}</td>
+        <td class="p-4 font-mono text-xs">${c.gstin}</td>
+        <td class="p-4 text-center" onclick="event.stopPropagation()"><button onclick="editClient('${c.clientId}')" class="text-primary-600 font-bold p-2 hover:bg-primary-50 rounded-lg">Edit</button></td>
+    </tr>
+    <div class="md:hidden bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex justify-between items-center" onclick="showDetails('CLIENT', '${c.clientId}')">
+       <div><p class="font-bold text-slate-900 dark:text-white">${c.shortName}</p><p class="text-[10px] text-slate-400 truncate w-40">${c.printName}</p></div>
+       <button class="text-primary-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+    </div>`).join('');
+}
+
+function editClient(id) {
+    const c = appDB.clients.find(x => x.clientId === id); if (!c) return;
+    openClientModal();
+    document.getElementById('client-edit-id').value = c.clientId;
+    document.getElementById('client-short').value = c.shortName;
+    document.getElementById('client-print').value = c.printName;
+    document.getElementById('client-address').value = c.address;
+    document.getElementById('client-gstin').value = c.gstin;
+}
+
+// Global exports
+window.refreshUI = refreshUI;
+window.showDetails = showDetails;
+window.populateDatalists = populateDatalists;
+window.getClientIdByName = getClientIdByName;
+window.getClientById = getClientById;
+window.formatDate = formatDate;
+window.openWorkEntryModal = openWorkEntryModal;
+window.addWorkSubItem = addWorkSubItem;
+window.removeWorkSubItem = removeWorkSubItem;
+window.renderWEItemsTable = renderWEItemsTable;
+window.saveWorkEntry = saveWorkEntry;
+window.clearWEFilters = clearWEFilters;
+window.renderWorkEntriesList = renderWorkEntriesList;
+window.editWE = editWE;
+window.deleteWE = deleteWE;
+window.toggleAllWE = toggleAllWE;
+window.updateBulkBillButton = updateBulkBillButton;
+window.bulkGenerateBill = bulkGenerateBill;
+window.clearInvFilters = clearInvFilters;
+window.renderInvoices = renderInvoices;
+window.lockInvoice = lockInvoice;
+window.deleteInvoice = deleteInvoice;
+window.openQuoteModal = openQuoteModal;
+window.addQuoteItem = addQuoteItem;
+window.removeQuoteItem = removeQuoteItem;
+window.generateQuote = generateQuote;
+window.renderQuotes = renderQuotes;
+window.deleteQuote = deleteQuote;
+window.savePayment = savePayment;
+window.renderPayments = renderPayments;
+window.deletePayment = deletePayment;
+window.generateStatement = generateStatement;
+window.openClientModal = openClientModal;
+window.saveClient = saveClient;
+window.renderClients = renderClients;
+window.editClient = editClient;

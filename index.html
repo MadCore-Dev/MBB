@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mangala Body Builders - ERP System</title>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81' },
+                        slate: { 850: '#1e293b', 900: '#0f172a', 950: '#020617' }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body
+    class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 font-sans min-h-screen flex flex-col theme-transition">
+
+    <!-- MOBILE SIDEBAR -->
+    <div id="sidebar-overlay" onclick="toggleSidebar()"
+        class="fixed inset-0 bg-slate-900/60 z-40 hidden opacity-0 transition-opacity duration-300"></div>
+    <aside id="sidebar"
+        class="fixed top-0 left-0 w-64 h-full bg-white dark:bg-slate-900 shadow-2xl z-50 transform -translate-x-full transition-transform duration-300 flex flex-col">
+        <div
+            class="p-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+            <span
+                class="font-extrabold text-lg bg-gradient-to-r from-primary-600 to-blue-500 bg-clip-text text-transparent">Menu</span>
+            <button onclick="toggleSidebar()"
+                class="p-2 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                    </path>
+                </svg>
+            </button>
+        </div>
+        <nav class="flex-grow p-4 space-y-2 overflow-y-auto">
+            <button onclick="switchTab('entries')" id="mob-nav-entries"
+                class="w-full text-left px-4 py-3 rounded-xl font-semibold transition-colors bg-primary-600 text-white">Work
+                Entries</button>
+            <button onclick="switchTab('bills')" id="mob-nav-bills"
+                class="w-full text-left px-4 py-3 rounded-xl font-semibold transition-colors text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Invoices</button>
+            <button onclick="switchTab('quotes')" id="mob-nav-quotes"
+                class="w-full text-left px-4 py-3 rounded-xl font-semibold transition-colors text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Quotations</button>
+            <button onclick="switchTab('payments')" id="mob-nav-payments"
+                class="w-full text-left px-4 py-3 rounded-xl font-semibold transition-colors text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Payments</button>
+            <button onclick="switchTab('statements')" id="mob-nav-statements"
+                class="w-full text-left px-4 py-3 rounded-xl font-semibold transition-colors text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Statements</button>
+            <button onclick="switchTab('clients')" id="mob-nav-clients"
+                class="w-full text-left px-4 py-3 rounded-xl font-semibold transition-colors text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Clients</button>
+            <button onclick="switchTab('db')" id="mob-nav-db"
+                class="w-full text-left px-4 py-3 rounded-xl font-semibold transition-colors text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Database</button>
+        </nav>
+    </aside>
+
+    <!-- MAIN APP INTERFACE -->
+    <div id="app-container" class="flex flex-col min-h-screen">
+
+        <!-- TOP NAVIGATION -->
+        <header
+            class="bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 theme-transition">
+            <div class="max-w-7xl mx-auto px-4 py-3 md:py-4">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <button onclick="toggleSidebar()"
+                            class="block md:hidden p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 6h16M4 12h16M4 18h16"></path>
+                            </svg>
+                        </button>
+                        <h1
+                            class="text-xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-primary-600 to-blue-500 bg-clip-text text-transparent truncate">
+                            Mangala ERP
+                        </h1>
+                    </div>
+                    <div class="flex items-center space-x-2 md:space-x-3">
+                        <button onclick="injectDummyData()"
+                            class="dummy-btn px-3 py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 text-xs font-bold transition-colors disabled:opacity-50 border border-amber-200 dark:border-amber-800 flex items-center">
+                            Test Data
+                        </button>
+                        <button onclick="toggleTheme()"
+                            class="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors">
+                            <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z">
+                                </path>
+                            </svg>
+                            <svg class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
+                                </path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Desktop Nav Pills (Hidden on Mobile) -->
+                <nav class="hidden md:flex overflow-x-auto space-x-2 mt-4 pb-1 text-sm font-medium scrollbar-hide">
+                    <button onclick="switchTab('entries')" id="nav-entries"
+                        class="nav-btn px-4 py-2 rounded-full transition-all whitespace-nowrap bg-primary-600 text-white shadow-md">Work
+                        Entries</button>
+                    <button onclick="switchTab('bills')" id="nav-bills"
+                        class="nav-btn px-4 py-2 rounded-full transition-all whitespace-nowrap text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Invoices</button>
+                    <button onclick="switchTab('quotes')" id="nav-quotes"
+                        class="nav-btn px-4 py-2 rounded-full transition-all whitespace-nowrap text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Quotations</button>
+                    <button onclick="switchTab('payments')" id="nav-payments"
+                        class="nav-btn px-4 py-2 rounded-full transition-all whitespace-nowrap text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Payments</button>
+                    <button onclick="switchTab('statements')" id="nav-statements"
+                        class="nav-btn px-4 py-2 rounded-full transition-all whitespace-nowrap text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Statements</button>
+                    <button onclick="switchTab('clients')" id="nav-clients"
+                        class="nav-btn px-4 py-2 rounded-full transition-all whitespace-nowrap text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Clients</button>
+                    <button onclick="switchTab('db')" id="nav-db"
+                        class="nav-btn px-4 py-2 rounded-full transition-all whitespace-nowrap text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Database</button>
+                </nav>
+            </div>
+        </header>
+
+        <main class="flex-grow w-full max-w-7xl mx-auto p-4 md:p-6 pb-24">
+            <datalist id="client-datalist"></datalist>
+            <datalist id="work-history-list"></datalist>
+
+            <!-- TAB 1: WORK ENTRIES -->
+            <div id="tab-entries" class="tab-content">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Work Entries</h2>
+                    <button onclick="openWorkEntryModal()"
+                        class="w-full md:w-auto bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 md:py-2.5 px-5 rounded-xl shadow-md transition-all flex items-center justify-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4">
+                            </path>
+                        </svg> Add Vehicle Entry
+                    </button>
+                </div>
+
+                <!-- Filters & Action Bar -->
+                <div
+                    class="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 mb-6 flex flex-col lg:flex-row gap-4 lg:items-end">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full lg:w-auto flex-grow">
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Month</label>
+                            <select id="filter-we-month" onchange="renderWorkEntriesList()"
+                                class="month-dropdown w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none"></select>
+                        </div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Client</label>
+                            <input type="text" list="client-datalist" id="filter-we-client"
+                                onchange="renderWorkEntriesList()" placeholder="All Clients"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Status</label>
+                            <select id="filter-we-status" onchange="renderWorkEntriesList()"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none">
+                                <option value="ALL">All Status</option>
+                                <option value="UNBILLED" selected>Unbilled</option>
+                                <option value="BILLED">Billed</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1 flex items-end">
+                            <button onclick="clearWEFilters()"
+                                class="w-full text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg p-2.5 text-sm font-semibold transition-colors">Clear</button>
+                        </div>
+                    </div>
+                    <div class="w-full lg:w-auto pt-2 lg:pt-0">
+                        <button id="btn-generate-bill" disabled onclick="bulkGenerateBill()"
+                            class="w-full bg-slate-200 dark:bg-slate-800 text-slate-400 font-semibold py-2.5 px-6 rounded-xl transition-all cursor-not-allowed">
+                            Select Entries to Bill
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Responsive Table / Cards -->
+                <div class="w-full">
+                    <table class="w-full text-sm text-left">
+                        <thead
+                            class="hidden md:table-header-group bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 rounded-t-xl">
+                            <tr>
+                                <th class="p-4 text-center w-12 rounded-tl-xl"><input type="checkbox" id="we-select-all"
+                                        onchange="toggleAllWE(this)"
+                                        class="w-4 h-4 rounded text-primary-600 cursor-pointer"></th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider">Date</th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider">Client</th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider">Vehicle</th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider text-right">Total (₹)</th>
+                                <th
+                                    class="p-4 font-bold uppercase text-[10px] tracking-wider text-center w-16 rounded-tr-xl">
+                                    Action</th>
+                            </tr>
+                        </thead>
+                        <!-- Body renders Flex-Cards on mobile, Rows on Desktop -->
+                        <tbody id="we-list-tbody"
+                            class="flex flex-col gap-3 md:table-row-group text-slate-700 dark:text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 2: INVOICES -->
+            <div id="tab-bills" class="tab-content hidden">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-2">
+                    <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Tax Invoices</h2>
+                    <p
+                        class="text-[10px] md:text-xs font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                        CA Compliant System</p>
+                </div>
+
+                <div
+                    class="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 mb-6 flex flex-col lg:flex-row gap-4 lg:items-end">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Month</label>
+                            <select id="filter-inv-month" onchange="renderInvoices()"
+                                class="month-dropdown w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none"></select>
+                        </div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Client</label>
+                            <input type="text" list="client-datalist" id="filter-inv-client" onchange="renderInvoices()"
+                                placeholder="All Clients"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Status</label>
+                            <select id="filter-inv-status" onchange="renderInvoices()"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none">
+                                <option value="ALL" selected>All Status</option>
+                                <option value="DRAFT">Draft Mode</option>
+                                <option value="LOCKED">Sent & Locked</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1 flex items-end">
+                            <button onclick="clearInvFilters()"
+                                class="w-full text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg p-2.5 text-sm font-semibold transition-colors">Clear</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full">
+                    <table class="w-full text-sm text-left">
+                        <thead
+                            class="hidden md:table-header-group bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800">
+                            <tr>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider rounded-tl-xl">Inv No.
+                                </th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider">Date</th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider">Client</th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider">Status</th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider text-right">Amount</th>
+                                <th
+                                    class="p-4 font-bold uppercase text-[10px] tracking-wider text-center w-16 rounded-tr-xl">
+                                    Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="past-bills-tbody"
+                            class="flex flex-col gap-3 md:table-row-group text-slate-700 dark:text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 3: QUOTATIONS -->
+            <div id="tab-quotes" class="tab-content hidden">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Quotations</h2>
+                    <button onclick="openQuoteModal()"
+                        class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 md:py-2.5 px-5 rounded-xl shadow-md transition-all flex items-center justify-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
+                            </path>
+                        </svg>
+                        Create Quotation
+                    </button>
+                </div>
+
+                <div class="w-full">
+                    <table class="w-full text-sm text-left">
+                        <thead
+                            class="hidden md:table-header-group bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800">
+                            <tr>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider rounded-tl-xl">Date</th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider">Client</th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider">Vehicle</th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider text-center">Workflow</th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider text-right">Est. Amount
+                                </th>
+                                <th
+                                    class="p-4 font-bold uppercase text-[10px] tracking-wider text-center w-16 rounded-tr-xl">
+                                    Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="past-quotes-tbody"
+                            class="flex flex-col gap-3 md:table-row-group text-slate-700 dark:text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 4: PAYMENTS -->
+            <div id="tab-payments" class="tab-content hidden">
+                <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-6">Payment Receipts</h2>
+
+                <div
+                    class="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 mb-6">
+                    <h3
+                        class="text-[10px] md:text-xs font-bold text-emerald-600 uppercase tracking-wider mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
+                        Log New Payment</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Date</label><input
+                                type="date" id="pay-date"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none">
+                        </div>
+                        <div><label
+                                class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Client</label><input
+                                type="text" list="client-datalist" id="pay-client"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none">
+                        </div>
+                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Amount
+                                (₹)</label><input type="number" id="pay-amount" placeholder="0"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none">
+                        </div>
+                        <div><label
+                                class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Method/Ref</label><input
+                                type="text" id="pay-method" placeholder="e.g. NEFT"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none">
+                        </div>
+                        <div class="flex items-end"><button onclick="savePayment()"
+                                class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold p-2.5 rounded-xl shadow-md transition-colors">Save</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full">
+                    <table class="w-full text-sm text-left">
+                        <thead
+                            class="hidden md:table-header-group bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800">
+                            <tr>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider rounded-tl-xl">Date</th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider">Client</th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider">Method</th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider text-right">Amount (₹)
+                                </th>
+                                <th
+                                    class="p-4 font-bold uppercase text-[10px] tracking-wider text-center w-16 rounded-tr-xl">
+                                    Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="payments-tbody"
+                            class="flex flex-col gap-3 md:table-row-group text-slate-700 dark:text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 5: STATEMENTS -->
+            <div id="tab-statements" class="tab-content hidden">
+                <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-6">Advanced Client Ledger</h2>
+
+                <div
+                    class="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
+                        <div class="md:col-span-2"><label
+                                class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Select
+                                Client</label><input type="text" list="client-datalist" id="stmt-client"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none">
+                        </div>
+                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">From
+                                Date</label><input type="date" id="stmt-from"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none">
+                        </div>
+                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">To
+                                Date</label><input type="date" id="stmt-to"
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none">
+                        </div>
+                    </div>
+                    <button onclick="generateStatement()"
+                        class="w-full md:w-auto bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 md:py-2.5 px-8 rounded-xl shadow-md transition-colors">Generate
+                        Ledger</button>
+                </div>
+
+                <div id="stmt-view-area" class="hidden">
+                    <div
+                        class="bg-gradient-to-r from-primary-50 to-indigo-50 dark:from-primary-900/20 dark:to-indigo-900/20 p-5 md:p-6 rounded-2xl border border-primary-100 dark:border-primary-800/50 mb-6 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
+                        <div>
+                            <p
+                                class="text-[10px] md:text-xs font-bold text-primary-800 dark:text-primary-300 uppercase tracking-wider mb-1">
+                                Closing Balance (for period)</p>
+                            <p class="text-3xl md:text-4xl font-extrabold text-primary-900 dark:text-primary-100">₹
+                                <span id="stmt-balance">0.00</span>
+                            </p>
+                        </div>
+                        <button onclick="printStatement()"
+                            class="w-full md:w-auto bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-black dark:hover:bg-white font-bold py-3 md:py-2.5 px-6 rounded-xl shadow-md transition-colors flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z">
+                                </path>
+                            </svg>
+                            Print PDF
+                        </button>
+                    </div>
+
+                    <div
+                        class="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                        <table class="w-full text-sm text-left">
+                            <thead
+                                class="hidden md:table-header-group bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                                <tr>
+                                    <th class="p-4 font-bold uppercase text-[10px] tracking-wider">Date</th>
+                                    <th class="p-4 font-bold uppercase text-[10px] tracking-wider">Particulars</th>
+                                    <th
+                                        class="p-4 font-bold uppercase text-[10px] tracking-wider text-right text-rose-600 dark:text-rose-400">
+                                        Billed (₹)</th>
+                                    <th
+                                        class="p-4 font-bold uppercase text-[10px] tracking-wider text-right text-emerald-600 dark:text-emerald-400">
+                                        Paid (₹)</th>
+                                    <th class="p-4 font-bold uppercase text-[10px] tracking-wider text-right">Balance
+                                        (₹)</th>
+                                </tr>
+                            </thead>
+                            <!-- Statements use passbook-style flex view on mobile -->
+                            <tbody id="stmt-tbody"
+                                class="flex flex-col md:table-row-group text-slate-700 dark:text-slate-300"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 6: CLIENTS -->
+            <div id="tab-clients" class="tab-content hidden">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Client Management</h2>
+                    <button onclick="openClientModal()"
+                        class="w-full md:w-auto bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 md:py-2.5 px-5 rounded-xl shadow-md transition-all">+
+                        Add New Client</button>
+                </div>
+                <div class="w-full">
+                    <table class="w-full text-sm text-left">
+                        <thead
+                            class="hidden md:table-header-group bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800">
+                            <tr>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider rounded-tl-xl">Short Name
+                                </th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider">Print Name</th>
+                                <th class="p-4 font-bold uppercase text-[10px] tracking-wider">GSTIN</th>
+                                <th
+                                    class="p-4 font-bold uppercase text-[10px] tracking-wider text-center w-16 rounded-tr-xl">
+                                    Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clients-tbody"
+                            class="flex flex-col gap-3 md:table-row-group text-slate-700 dark:text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 7: DATABASE -->
+            <div id="tab-db" class="tab-content hidden">
+                <div
+                    class="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 max-w-3xl mx-auto text-center mt-8">
+                    <div
+                        class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 mb-4">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4">
+                            </path>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold mb-2">Database Backup & Restore</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm mb-8">Securely download your app data to your
+                        device, or restore from a previous backup file.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                        <button onclick="exportJSON()"
+                            class="bg-primary-600 hover:bg-primary-700 text-white font-semibold py-4 px-4 rounded-xl shadow transition-colors">Download
+                            Backup</button>
+                        <div>
+                            <input type="file" id="import-file" accept=".json" class="hidden"
+                                onchange="importJSON(event)">
+                            <button onclick="document.getElementById('import-file').click()"
+                                class="w-full bg-slate-800 dark:bg-slate-700 hover:bg-black dark:hover:bg-slate-600 text-white font-semibold py-4 px-4 rounded-xl shadow transition-colors">Restore
+                                Backup</button>
+                        </div>
+                    </div>
+                    <button onclick="resetDatabase()"
+                        class="mt-12 text-rose-600 dark:text-rose-400 font-bold hover:underline text-sm p-4">Reset
+                        Entire Database to Zero</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ==========================================
+         MODALS & POPUPS
+         ========================================== -->
+
+    <!-- FULL DETAILS POPUP (Shown when clicking a mobile card) -->
+    <div id="modal-details"
+        class="fixed inset-0 modal-overlay z-[70] hidden flex justify-center items-end md:items-center px-2 pb-4 md:pb-0 opacity-0 transition-opacity duration-300">
+        <div
+            class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col border border-slate-200 dark:border-slate-700 transform scale-95 md:scale-100 translate-y-full md:translate-y-0 transition-all duration-300">
+            <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                <h2 id="modal-details-title" class="text-lg font-bold text-slate-900 dark:text-white">Details View</h2>
+                <button onclick="closeAllModals()"
+                    class="text-slate-400 hover:text-rose-500 bg-slate-100 dark:bg-slate-800 p-2 rounded-full"><svg
+                        class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg></button>
+            </div>
+            <div id="modal-details-body"
+                class="p-6 overflow-y-auto flex-grow custom-scrollbar text-sm text-slate-700 dark:text-slate-300 space-y-4">
+            </div>
+            <div id="modal-details-footer"
+                class="p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex flex-wrap justify-end gap-3 rounded-b-3xl hidden">
+            </div>
+        </div>
+    </div>
+
+    <!-- WORK ENTRY CREATE/EDIT MODAL -->
+    <div id="modal-we"
+        class="fixed inset-0 modal-overlay z-50 hidden flex justify-center items-end md:items-center px-2 pb-2 md:pb-0 opacity-0 transition-opacity duration-300">
+        <div
+            class="bg-white dark:bg-slate-900 rounded-3xl md:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] md:max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-700 transform translate-y-full md:translate-y-0 md:scale-95 transition-all duration-300">
+            <div
+                class="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 rounded-t-3xl md:rounded-t-2xl">
+                <h2 id="modal-we-title" class="text-xl font-bold">Add Vehicle Entry</h2>
+                <button onclick="closeAllModals()"
+                    class="text-slate-400 hover:text-rose-500 bg-slate-200 dark:bg-slate-700 p-2 rounded-full"><svg
+                        class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg></button>
+            </div>
+            <div class="p-5 md:p-6 overflow-y-auto flex-grow custom-scrollbar">
+                <input type="hidden" id="we-edit-id"><input type="hidden" id="we-linked-quote">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Date</label><input
+                            type="date" id="we-date"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Client</label><input
+                            type="text" list="client-datalist" id="we-client"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Vehicle
+                            No.</label><input type="text" id="we-vehicle"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary-500 uppercase">
+                    </div>
+                </div>
+                <div
+                    class="bg-primary-50/50 dark:bg-primary-900/10 p-4 md:p-5 rounded-2xl border border-primary-100 dark:border-primary-900/30">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end mb-4">
+                        <div class="md:col-span-2"><label
+                                class="block text-[10px] font-bold text-primary-800 dark:text-primary-300 uppercase mb-1">Work
+                                Done</label><input type="text" id="we-work" list="work-history-list"
+                                class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                        <div><label
+                                class="block text-[10px] font-bold text-primary-800 dark:text-primary-300 uppercase mb-1">Cost
+                                (₹)</label><input type="number" id="we-cost" placeholder="0"
+                                class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                        <button onclick="addWorkSubItem()"
+                            class="bg-primary-600 hover:bg-primary-700 text-white font-bold p-3 rounded-xl transition-colors">Add
+                            Item</button>
+                    </div>
+                    <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                        <table class="w-full text-sm text-left bg-white dark:bg-slate-900">
+                            <thead
+                                class="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                                <tr>
+                                    <th class="p-3 font-bold uppercase text-[10px]">Description</th>
+                                    <th class="p-3 font-bold uppercase text-[10px] text-right">Cost</th>
+                                    <th class="w-12"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="we-draft-tbody"
+                                class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-right mt-4 text-xl font-bold">Total: <span
+                            class="text-primary-600 dark:text-primary-400">₹<span id="we-draft-total">0.00</span></span>
+                    </div>
+                </div>
+            </div>
+            <div
+                class="p-5 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3 rounded-b-3xl md:rounded-b-2xl">
+                <button onclick="closeAllModals()"
+                    class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold py-3 px-6 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700">Cancel</button>
+                <button onclick="saveWorkEntry()"
+                    class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-xl shadow-md">Save
+                    Entry</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- QUOTATION CREATE MODAL -->
+    <div id="modal-quote"
+        class="fixed inset-0 modal-overlay z-50 hidden flex justify-center items-end md:items-center px-2 pb-2 md:pb-0 opacity-0 transition-opacity duration-300">
+        <div
+            class="bg-white dark:bg-slate-900 rounded-3xl md:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col border border-slate-200 dark:border-slate-700 transform translate-y-full md:translate-y-0 md:scale-95 transition-all duration-300">
+            <div
+                class="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-indigo-50 dark:bg-indigo-900/20 rounded-t-3xl md:rounded-t-2xl">
+                <h2 class="text-xl font-bold text-indigo-900 dark:text-indigo-100">Create Quotation</h2>
+                <button onclick="closeAllModals()"
+                    class="text-slate-400 hover:text-rose-500 bg-slate-200 dark:bg-slate-700 p-2 rounded-full"><svg
+                        class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg></button>
+            </div>
+            <div class="p-5 md:p-6 overflow-y-auto flex-grow custom-scrollbar">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Date</label><input
+                            type="date" id="quote-date"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Client</label><input
+                            type="text" list="client-datalist" id="quote-client"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Vehicle</label><input
+                            type="text" id="quote-vehicle"
+                            class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                <div
+                    class="bg-indigo-50/50 dark:bg-indigo-900/10 p-4 md:p-5 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end mb-4">
+                        <div class="md:col-span-2"><label
+                                class="block text-[10px] font-bold text-indigo-800 dark:text-indigo-300 uppercase mb-1">Description</label><input
+                                type="text" id="quote-item-desc"
+                                class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div><label
+                                class="block text-[10px] font-bold text-indigo-800 dark:text-indigo-300 uppercase mb-1">Est.
+                                Cost</label><input type="number" id="quote-item-cost"
+                                class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <button onclick="addQuoteItem()"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-3 rounded-xl transition-colors">Add
+                            Item</button>
+                    </div>
+                    <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                        <table class="w-full text-sm text-left bg-white dark:bg-slate-900">
+                            <thead
+                                class="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                                <tr>
+                                    <th class="p-3 font-bold uppercase text-[10px]">Description</th>
+                                    <th class="p-3 font-bold uppercase text-[10px] text-right">Cost</th>
+                                    <th class="w-12"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="quote-draft-tbody"
+                                class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div
+                class="p-5 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3 rounded-b-3xl md:rounded-b-2xl">
+                <button onclick="generateQuote()"
+                    class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-md">Save
+                    & Preview Quote</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CLIENT MODAL -->
+    <div id="modal-client"
+        class="fixed inset-0 modal-overlay z-50 hidden flex justify-center items-end md:items-center px-2 pb-2 md:pb-0 opacity-0 transition-opacity duration-300">
+        <div
+            class="bg-white dark:bg-slate-900 rounded-3xl md:rounded-2xl shadow-2xl w-full max-w-md transform translate-y-full md:translate-y-0 md:scale-95 transition-all duration-300 border border-slate-200 dark:border-slate-700">
+            <div
+                class="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 rounded-t-3xl md:rounded-t-2xl">
+                <h2 class="text-xl font-bold">Add/Edit Client</h2><button onclick="closeAllModals()"
+                    class="text-slate-400 hover:text-rose-500 bg-slate-200 dark:bg-slate-700 p-2 rounded-full"><svg
+                        class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg></button>
+            </div>
+            <div class="p-6">
+                <input type="hidden" id="client-edit-id">
+                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Short Name</label><input
+                    type="text" id="client-short"
+                    class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm mb-4 outline-none focus:ring-2 focus:ring-primary-500">
+                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Formal Print Name</label><input
+                    type="text" id="client-print"
+                    class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm mb-4 outline-none focus:ring-2 focus:ring-primary-500">
+                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Address</label><textarea
+                    id="client-address"
+                    class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm mb-4 outline-none focus:ring-2 focus:ring-primary-500 custom-scrollbar"
+                    rows="2"></textarea>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">GSTIN</label><input type="text"
+                    id="client-gstin"
+                    class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm mb-6 outline-none uppercase focus:ring-2 focus:ring-primary-500">
+                <button onclick="saveClient()"
+                    class="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-3.5 rounded-xl shadow-md transition-colors">Save
+                    Client Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINT VIEW (Forced Light Mode visually by CSS) -->
+    <div id="print-view" class="bg-slate-200 min-h-screen pb-10">
+        <div class="bg-slate-800 text-white p-4 sticky top-0 shadow-lg flex justify-between items-center no-print z-20">
+            <div><button onclick="closePrintView()"
+                    class="bg-slate-600 hover:bg-slate-500 px-4 py-2 rounded-lg text-sm font-semibold mr-4">←
+                    Back</button><button onclick="setPrintLayout('a4')"
+                    class="px-3 py-1.5 bg-slate-700 rounded-md text-xs border border-slate-600">A4 Full</button><button
+                    onclick="setPrintLayout('thermal')"
+                    class="px-3 py-1.5 bg-slate-700 rounded-md text-xs border border-slate-600 ml-1">Thermal</button>
+            </div>
+            <button onclick="window.print()"
+                class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-6 py-2 rounded-lg font-bold shadow-md">PRINT
+                / PDF</button>
+        </div>
+        <div class="pt-8">
+            <div id="print-content" class="preview-a4 bg-white relative text-black"></div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         JAVASCRIPT APPLICATION LOGIC
+         ========================================== -->
+    <script src="js/db.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/print.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        window.onload = () => { initApp(); };
+    </script>
+</body>
+
+</html>
