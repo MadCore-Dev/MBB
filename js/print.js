@@ -20,7 +20,13 @@ function reprintDoc(docId) {
 }
 
 function printStatement() {
-    window.print();
+    // Check if we have the statement data prepared
+    if (window.printPayload && window.printPayload.type === 'STATEMENT') {
+        openPrintPreview('STATEMENT', window.printPayload);
+    } else {
+        // Fallback just in case
+        window.print();
+    }
 }
 
 function closePrintView() {
@@ -359,18 +365,37 @@ function openPrintPreview(type, data) {
         `;
 
     } else if (type === 'STATEMENT') {
+
+        // ==========================================
+        // 1. A4 LAYOUT FOR STATEMENTS
+        // ==========================================
         const statementHtml = `
         <div class="text-black font-sans w-full" style="box-sizing: border-box; overflow: visible;">
-            <div class="flex flex-col items-center mb-4">
-                <img src="assets/logo.png" alt="Mangala Logo" class="w-16 h-16 object-contain mb-2 filter-primary-blue" style="filter: invert(18%) sepia(99%) saturate(2740%) hue-rotate(213deg) brightness(93%) contrast(99%) !important;">
-                <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 38px; color: #0033cc !important; line-height: 1;">${COMPANY_DETAILS.name}</h1>
+            <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center justify-start w-1/4">
+                    <img src="assets/logo.png" alt="MBB Logo" class="w-20 h-20 object-contain filter-primary-blue" style="filter: invert(18%) sepia(99%) saturate(2740%) hue-rotate(213deg) brightness(93%) contrast(99%) !important;">
+                </div>
+                <div class="text-center w-2/4">
+                    <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 46px; color: #0033cc !important; line-height: 1; font-weight: normal; margin-bottom: 2px;">${COMPANY_DETAILS.name}</h1>
+                </div>
+                <div class="text-right text-[11px] font-bold w-1/4" style="color: black !important;">
+                    <p>${COMPANY_DETAILS.phone1}</p>
+                    <p>${COMPANY_DETAILS.phone2}</p>
+                </div>
             </div>
+            <div class="text-center text-[10px] font-bold mb-2 flex justify-center gap-2" style="color: black !important;">
+                <span>${COMPANY_DETAILS.tagline}</span>
+            </div>
+            <div class="border-y border-black text-center py-1.5 text-[11px] font-medium mb-6" style="color: black !important;">
+                Address : ${COMPANY_DETAILS.address}
+            </div>
+
             <p class="text-center font-bold text-sm mb-6 uppercase tracking-widest border-y border-black py-1" style="color: black !important;">Client Ledger Statement</p>
             
-            <div class="mb-8 flex justify-between items-end border-b border-dashed border-gray-400 pb-4" style="color: black !important;">
+            <div class="mb-6 flex justify-between items-end border-b border-dashed border-gray-400 pb-4" style="color: black !important;">
                 <div>
                     <label class="text-[10px] font-bold text-gray-500 uppercase">Statement For:</label>
-                    <p class="text-xl font-black">${client.printName}</p>
+                    <p class="text-xl font-black uppercase">${client.printName}</p>
                     <p class="text-sm font-bold text-gray-700 mt-1">Period: ${data.from} to ${data.to}</p>
                 </div>
                 <div class="text-right text-sm">
@@ -406,11 +431,63 @@ function openPrintPreview(type, data) {
             <div class="mt-12 text-[10px] text-center text-gray-500 font-bold uppercase tracking-widest">--- END OF STATEMENT ---</div>
         </div>`;
 
+        // ==========================================
+        // 2. THERMAL LAYOUT FOR STATEMENTS
+        // ==========================================
+        let thermalRowsHtml = '';
+        data.rows.forEach(r => {
+            const drStr = r.dr ? '₹' + r.dr.toLocaleString('en-IN') : '--';
+            const crStr = r.cr ? '₹' + r.cr.toLocaleString('en-IN') : '--';
+            thermalRowsHtml += `
+            <div class="py-1.5 border-b border-dashed border-gray-400">
+                <div class="flex justify-between font-bold text-[11px] mb-0.5">
+                    <span>${formatDate(r.date)}</span>
+                    <span>Bal: ₹${r.bal.toLocaleString('en-IN')}</span>
+                </div>
+                <div class="text-[10px] font-bold leading-tight">${r.label} ${r.ref ? `[${r.ref}]` : ''}</div>
+                <div class="flex justify-between text-[10px] mt-1">
+                    <span>Dr: ${drStr}</span>
+                    <span>Cr: ${crStr}</span>
+                </div>
+            </div>`;
+        });
+
+        const thermalStatementHtml = `
+        <div class="font-sans text-black w-full" style="box-sizing: border-box;">
+            <div class="text-center mb-3">
+                <img src="assets/logo.png" alt="MBB Logo" class="w-16 h-16 mx-auto mb-1 filter-primary-blue" style="filter: invert(18%) sepia(99%) saturate(2740%) hue-rotate(213deg) brightness(93%) contrast(99%) !important;">
+                <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 28px; color: #0033cc !important; line-height: 1; margin-bottom: 4px;">${COMPANY_DETAILS.name}</h1>
+                <p class="text-[11px] font-bold">${COMPANY_DETAILS.phone1} | ${COMPANY_DETAILS.phone2}</p>
+                <p class="text-[10px]">${COMPANY_DETAILS.address}</p>
+            </div>
+
+            <div class="border-y border-dashed border-black py-2 mb-2 text-[11px]">
+                <div class="text-center font-bold text-[13px] uppercase tracking-wider mb-2">LEDGER STATEMENT</div>
+                <p><span class="font-bold">Client:</span> ${client.printName}</p>
+                <p><span class="font-bold">Period:</span> ${data.from} <br/>to ${data.to}</p>
+            </div>
+
+            <div class="mb-2">
+                ${thermalRowsHtml}
+            </div>
+
+            <div class="border-t-[1.5px] border-black pt-2 pb-4 text-[11px]">
+                <div class="flex justify-between font-black text-[13px] mb-2">
+                    <span>CLOSING BAL:</span>
+                    <span>₹ ${data.balance.toLocaleString('en-IN')}</span>
+                </div>
+                <div class="text-center text-[10px] text-gray-600 italic mt-3">
+                    Generated: ${new Date().toLocaleDateString()}
+                </div>
+                <div class="text-center font-bold text-[11px] uppercase tracking-widest mt-4 border-t border-dashed border-black pt-3">
+                    *** END OF STATEMENT ***
+                </div>
+            </div>
+        </div>`;
+
         html = `
             <div class="a4-layout-container">${statementHtml}</div>
-            <div class="thermal-layout-container hidden" style="display: none;">
-               <p class="text-center font-bold text-xl mt-10">Statements are designed for A4 layout only.</p>
-            </div>
+            <div class="thermal-layout-container hidden" style="display: none;">${thermalStatementHtml}</div>
         `;
     }
 
