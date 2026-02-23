@@ -1,3 +1,17 @@
+// --- CENTRAL COMPANY DETAILS CONFIGURATION ---
+const COMPANY_DETAILS = {
+    name: "Mangala Body Builders",
+    tagline: "We Undertake All Kinds of Bus Repairing, Painting, Cushion Works etc.",
+    address: "Near Kajale Petrol Pump, 456, Moshi, Tal. Haveli, Pune - 410501.",
+    gstin: "27AVUPS1614F1ZA",
+    phone1: "Santosh : 9822325571",
+    phone2: "Prashant : 9822356479",
+    quoteDisclaimers: [
+        "Note: GST will be applied on final estimation.",
+        "Note: Estimates may be revised if required after dismantling the vehicle."
+    ]
+};
+
 // --- PRINT ENGINE ---
 function reprintDoc(docId) {
     const doc = appDB.documents.find(d => d.docId === docId);
@@ -14,7 +28,7 @@ function closePrintView() {
     document.getElementById('app-container').classList.remove('hidden');
 }
 
-function setPrintLayout(mode, colorMode = 'color') {
+function setPrintLayout(mode) {
     const container = document.getElementById('print-content');
     if (!container) return;
 
@@ -22,54 +36,56 @@ function setPrintLayout(mode, colorMode = 'color') {
     container.style.overflow = 'visible';
     container.style.height = 'auto'; // Let it stretch naturally
 
+    // Target our newly created layout wrappers
+    const a4View = container.querySelector('.a4-layout-container');
+    const thermalView = container.querySelector('.thermal-layout-container');
+
     if (mode === 'thermal') {
         container.className = 'preview-thermal bg-white relative text-black mx-auto print:mx-0 print:w-full print:shadow-none';
         document.body.className = 'print-thermal';
+        if (a4View) a4View.style.display = 'none';
+        if (thermalView) thermalView.style.display = 'block';
     } else {
         container.className = 'preview-a4 bg-white relative text-black mx-auto print:mx-0 print:w-full print:shadow-none print:p-0';
         document.body.className = 'print-a4';
+        if (a4View) a4View.style.display = 'block';
+        if (thermalView) thermalView.style.display = 'none';
     }
 
-    const logo = container.querySelector('img[alt="MBB Logo"]');
-    if (logo) {
-        if (mode === 'thermal' || colorMode === 'bw') {
-            logo.classList.remove('filter-primary-blue');
-            logo.style.cssText = 'filter: grayscale(100%) brightness(0%) !important;';
-        } else {
-            logo.classList.add('filter-primary-blue');
-            logo.style.cssText = 'filter: invert(18%) sepia(99%) saturate(2740%) hue-rotate(213deg) brightness(93%) contrast(99%) !important;';
-        }
-    }
+    // Force scale & height recalculation after DOM reflow
+    setTimeout(() => {
+        setPrintScale(window.currentScaleMode || '100%');
+    }, 50);
 }
 
 function setPrintScale(scaleMode) {
+    // Remember the chosen scale mode for when layouts are toggled
+    scaleMode = scaleMode || window.currentScaleMode || '100%';
+    window.currentScaleMode = scaleMode;
+
     const wrapper = document.getElementById('print-scale-wrapper');
     const content = document.getElementById('print-content');
     if (!wrapper || !content) return;
 
-    // Reset explicit heights to measure the true dynamic height
     wrapper.style.height = 'auto';
     content.style.height = 'auto';
     content.style.overflow = 'visible';
 
-    // Get the base physical dimensions
     const isThermal = document.body.classList.contains('print-thermal');
     const baseWidth = isThermal ? 302 : 794;
-    // Measure natural document height, with A4 minimum fallback
+    // Allow thermal to stretch as long as it needs
     const baseHeight = Math.max(isThermal ? 400 : 1123, content.offsetHeight);
 
-    // Calculate available screen space (minus padding/header)
     const availableWidth = window.innerWidth - 32;
     const availableHeight = window.innerHeight - 100;
 
     let newScale = 1;
 
-    // 100% (Fit Page) evaluates BOTH height and width, scaling to whichever constraints it first 
-    // ensuring the ENTIRE document perfectly fits on your screen without scrolling or clipping.
     if (scaleMode === '100%' || scaleMode === 'fit-page') {
         const scaleW = availableWidth / baseWidth;
         const scaleH = availableHeight / baseHeight;
-        newScale = Math.min(scaleW, scaleH);
+        // If it's thermal, we rarely want to 'fit-page' height because receipts are very long
+        newScale = isThermal ? scaleW : Math.min(scaleW, scaleH);
     } else if (scaleMode === 'fit-width') {
         newScale = availableWidth / baseWidth;
     }
@@ -77,9 +93,6 @@ function setPrintScale(scaleMode) {
     newScale = Math.min(newScale, 2);
     wrapper.style.setProperty('--print-scale', newScale.toFixed(3));
 
-    // CRITICAL FIX: Because CSS transform: scale() leaves visual ghost space, 
-    // we explicitly lock the wrapper's physical height to the scaled equivalent.
-    // This stops scroll-clipping and page overflow dead in its tracks.
     wrapper.style.height = (baseHeight * newScale) + 'px';
     wrapper.style.transformOrigin = 'top center';
 }
@@ -89,6 +102,9 @@ function openPrintPreview(type, data) {
     const content = document.getElementById('print-content');
     if (!view || !content) return;
 
+    // Ensure Modals are closed so they don't bleed into the physical print
+    if (window.closeAllModals) window.closeAllModals();
+
     view.classList.remove('bg-white', 'text-black');
     view.classList.add('bg-slate-100', 'dark:bg-slate-950');
 
@@ -97,7 +113,8 @@ function openPrintPreview(type, data) {
 
     if (type === 'INVOICE' || type === 'QUOTATION') {
         const isInv = (type === 'INVOICE');
-        const isTaxable = !isInv || data.isTaxable !== false;
+        // If it's a Quote, isTaxable is ALWAYS false. If it's an Invoice, check its specific state.
+        const isTaxable = isInv && data.isTaxable !== false;
         const docLabel = isInv ? (isTaxable ? 'TAX INVOICE' : 'MEMO') : 'ESTIMATE / QUOTATION';
 
         const groups = [];
@@ -112,13 +129,15 @@ function openPrintPreview(type, data) {
             groups[groupIndex[key]].total += it.cost;
         });
 
-        let itemRowsHtml = '';
+        // ==========================================
+        // 1. GENERATE A4 LAYOUT
+        // ==========================================
+        let a4ItemRowsHtml = '';
         groups.forEach(g => {
             const workLines = g.items.map(it => `<div>${it.workDone}</div>`).join('');
             const costLines = g.items.map(it => `<div>${it.cost.toFixed(2)}</div>`).join('');
 
-            // Standard thin inner borders to match the clean professional screenshot
-            itemRowsHtml += `
+            a4ItemRowsHtml += `
             <tr style="border-bottom: 1px dashed black;">
                 <td class="p-2 align-top whitespace-nowrap" style="border-right: 1px solid black;">${formatDate(g.date)}</td>
                 <td class="p-2 align-top font-bold uppercase" style="border-right: 1px solid black;">${g.vehicle}</td>
@@ -142,39 +161,31 @@ function openPrintPreview(type, data) {
                 <td class="p-1 text-right text-[10px] font-bold" style="color: black !important;">${data.sgst.toFixed(2)}</td>
             </tr>` : `
             <tr>
-                <td colspan="4" class="p-1.5 text-right font-bold text-[11px]" style="border-right: 1px solid black; color: black !important;">TAXABLE VALUE</td>
+                <td colspan="4" class="p-1.5 text-right font-bold text-[11px]" style="border-right: 1px solid black; color: black !important;">TAXABLE VALUE / TOTAL</td>
                 <td class="p-1.5 text-right font-bold" style="color: black !important;">${data.taxable.toFixed(2)}</td>
             </tr>`;
 
-        html = `
+        const a4Html = `
         <div class="text-black font-sans w-full" style="box-sizing: border-box; overflow: visible;">
-            
-            <!-- HEADER BLOCK (Classic Logo + Cursive Blue Type) -->
             <div class="flex items-center justify-between mb-1">
                 <div class="flex items-center justify-start w-1/4">
                     <img src="assets/logo.png" alt="MBB Logo" class="w-20 h-20 object-contain filter-primary-blue" style="filter: invert(18%) sepia(99%) saturate(2740%) hue-rotate(213deg) brightness(93%) contrast(99%) !important;">
                 </div>
                 <div class="text-center w-2/4">
-                    <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 46px; color: #0033cc !important; line-height: 1; font-weight: normal; margin-bottom: 2px;">Mangala Body Builders</h1>
+                    <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 46px; color: #0033cc !important; line-height: 1; font-weight: normal; margin-bottom: 2px;">${COMPANY_DETAILS.name}</h1>
                 </div>
                 <div class="text-right text-[11px] font-bold w-1/4" style="color: black !important;">
-                    <p>Santosh : 9822325571</p>
-                    <p>Prashant : 9822356479</p>
+                    <p>${COMPANY_DETAILS.phone1}</p>
+                    <p>${COMPANY_DETAILS.phone2}</p>
                 </div>
             </div>
-
-            <!-- TAGLINE & GSTIN ROW -->
             <div class="text-center text-[10px] font-bold mb-2 flex justify-center gap-2" style="color: black !important;">
-                <span>We Undertake All Kinds of Bus Repairing, Painting, Cushion Works etc.</span>
-                ${isTaxable ? `<span>GSTIN: 27ALGPS0161C1Z4</span>` : ''}
+                <span>${COMPANY_DETAILS.tagline}</span>
+                ${isTaxable ? `<span>GSTIN: ${COMPANY_DETAILS.gstin}</span>` : ''}
             </div>
-
-            <!-- ADDRESS LINE (Thin border exactly as requested) -->
             <div class="border-y border-black text-center py-1.5 text-[11px] font-medium mb-6" style="color: black !important;">
-                Address : Sr. No. 44, Near Nanekar Garage, Chakan-Talegaon Road, Nanekarwadi, Chakan, Pune - 410501.
+                Address : ${COMPANY_DETAILS.address}
             </div>
-
-            <!-- CLIENT & DOCUMENT INFO -->
             <div class="flex justify-between items-start mb-6 text-[12px]" style="color: black !important;">
                 <div class="w-1/2 flex gap-2">
                     <span class="font-bold">To,</span>
@@ -192,8 +203,6 @@ function openPrintPreview(type, data) {
                     </table>
                 </div>
             </div>
-
-            <!-- THE 5-COLUMN TABLE -->
             <table class="w-full text-[12px] border border-black" style="border-collapse: collapse; color: black !important;">
                 <thead>
                     <tr class="font-bold text-left border-b border-black">
@@ -205,8 +214,7 @@ function openPrintPreview(type, data) {
                     </tr>
                 </thead>
                 <tbody class="align-top border-b border-black">
-                    ${itemRowsHtml}
-                    <!-- Dynamic Empty Extender Row -->
+                    ${a4ItemRowsHtml}
                     <tr>
                         <td class="h-24" style="border-right: 1px solid black;"></td>
                         <td style="border-right: 1px solid black;"></td>
@@ -223,28 +231,138 @@ function openPrintPreview(type, data) {
                     </tr>
                 </tfoot>
             </table>
-
-            <!-- AMOUNT IN WORDS ATTACHED DIRECTLY UNDER TABLE -->
-            <div class="border border-black border-t-0 p-2 text-[11px] font-bold uppercase mb-24" style="color: black !important;">
+            
+            <div class="border border-black border-t-0 p-2 text-[11px] font-bold uppercase ${!isInv ? 'mb-4' : 'mb-24'}" style="color: black !important;">
                 ${window.numberToWords ? window.numberToWords(Math.round(data.grandTotal)) : ''}
             </div>
 
-            <!-- SIGNATURE BLOCK -->
+            ${!isInv ? `
+            <div class="text-[11px] font-bold text-left mb-16 italic" style="color: black !important;">
+                ${COMPANY_DETAILS.quoteDisclaimers.map(d => `<p>${d}</p>`).join('')}
+            </div>
+            ` : ''}
+
             <div class="flex justify-between items-end text-[12px] font-bold px-2" style="color: black !important;">
                 <div>Receivers Signature</div>
                 <div class="text-center">
-                    <p class="mb-12">To, Mangala Body Builders</p>
+                    <p class="mb-12">For ${COMPANY_DETAILS.name}</p>
                     <p>Authorised Signature</p>
                 </div>
             </div>
-
         </div>`;
-    } else if (type === 'STATEMENT') {
+
+
+        // ==========================================
+        // 2. GENERATE THERMAL LAYOUT
+        // ==========================================
+        let thermalItemsHtml = '';
+        groups.forEach(g => {
+            thermalItemsHtml += `
+            <div class="mb-2 pb-2 border-b border-dashed border-gray-400">
+                <div class="font-bold text-[12px]">${formatDate(g.date)}</div>
+                <div class="font-bold text-[12px] uppercase mb-1">${g.vehicle}</div>
+                <table class="w-full text-[11px]">
+            `;
+            g.items.forEach(it => {
+                thermalItemsHtml += `<tr><td class="pb-1 pr-2 align-top">${it.workDone}</td><td class="pb-1 text-right align-top font-bold w-16">₹${it.cost.toFixed(2)}</td></tr>`;
+            });
+            thermalItemsHtml += `
+                </table>
+                <div class="text-right font-black text-[12px] pt-1">Subtotal: ₹${g.total.toFixed(2)}</div>
+            </div>`;
+        });
+
+        const thermalHtml = `
+        <div class="font-sans text-black w-full" style="box-sizing: border-box;">
+            <div class="text-center mb-3">
+                <img src="assets/logo.png" alt="MBB Logo" class="w-16 h-16 mx-auto mb-1 filter-primary-blue" style="filter: invert(18%) sepia(99%) saturate(2740%) hue-rotate(213deg) brightness(93%) contrast(99%) !important;">
+                <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 28px; color: #0033cc !important; line-height: 1; margin-bottom: 4px;">${COMPANY_DETAILS.name}</h1>
+                <p class="text-[11px] font-bold">${COMPANY_DETAILS.phone1} | ${COMPANY_DETAILS.phone2}</p>
+                <p class="text-[10px]">${COMPANY_DETAILS.address}</p>
+                ${isTaxable ? `<p class="text-[10px] font-bold mt-1">GSTIN: ${COMPANY_DETAILS.gstin}</p>` : ''}
+            </div>
+
+            <div class="border-y border-dashed border-black py-2 mb-3 text-[11px]">
+                <div class="text-center font-bold text-[13px] uppercase tracking-wider mb-2">${docLabel}</div>
+                <p><span class="font-bold">To:</span> ${client.printName}</p>
+                ${isTaxable && client.gstin ? `<p><span class="font-bold">GSTIN:</span> <span class="uppercase">${client.gstin}</span></p>` : ''}
+                <div class="flex justify-between mt-1">
+                    <p><span class="font-bold">No:</span> ${data.docNumber}</p>
+                    <p><span class="font-bold">Date:</span> ${formatDate(data.date)}</p>
+                </div>
+            </div>
+
+            <div class="mb-2">
+                ${thermalItemsHtml}
+            </div>
+
+            <div class="border-t-[1.5px] border-black pt-2 text-[11px]">
+                ${isTaxable ? `
+                <div class="flex justify-between mb-0.5"><span>Taxable:</span><span>₹${data.taxable.toFixed(2)}</span></div>
+                <div class="flex justify-between mb-0.5"><span>CGST 9%:</span><span>₹${data.cgst.toFixed(2)}</span></div>
+                <div class="flex justify-between mb-1"><span>SGST 9%:</span><span>₹${data.sgst.toFixed(2)}</span></div>
+                ` : ''}
+                <div class="flex justify-between font-black text-[14px] mt-1 border-t border-black pt-1 mb-2">
+                    <span>TOTAL:</span><span>₹ ${Math.round(data.grandTotal).toLocaleString('en-IN')}</span>
+                </div>
+                <div class="font-bold text-[11px] uppercase text-center border-b border-dashed border-black pb-2 mb-3">
+                    ${window.numberToWords ? window.numberToWords(Math.round(data.grandTotal)) : ''}
+                </div>
+            </div>
+
+            ${!isInv ? `
+            <div class="text-[10px] text-center font-bold mb-3 italic">
+                ${COMPANY_DETAILS.quoteDisclaimers.map(d => `<p>${d}</p>`).join('')}
+            </div>
+            ` : ''}
+
+            <div class="text-center text-[11px] font-bold mb-6">
+                <p>For ${COMPANY_DETAILS.name}</p>
+                <p class="mt-8">(Authorised Signatory)</p>
+                <p class="mt-3 border-b-2 border-black pb-4 text-[10px] tracking-widest uppercase">*** Customer Copy ***</p>
+            </div>
+
+            ${isInv ? `
+            <div class="text-[11px] pt-2 pb-6">
+                <div class="text-center font-bold mb-3 tracking-widest uppercase">*** Office Copy ***</div>
+                <p><span class="font-bold">Inv No:</span> ${data.docNumber}</p>
+                <p><span class="font-bold">Date:</span> ${formatDate(data.date)}</p>
+                <p><span class="font-bold">Client:</span> ${client.printName}</p>
+                
+                <div class="mt-3 border-t-[1.5px] border-black pt-2 text-[11px]">
+                    ${isTaxable ? `
+                    <div class="flex justify-between mb-0.5"><span>Taxable:</span><span>₹${data.taxable.toFixed(2)}</span></div>
+                    <div class="flex justify-between mb-0.5"><span>CGST 9%:</span><span>₹${data.cgst.toFixed(2)}</span></div>
+                    <div class="flex justify-between mb-1"><span>SGST 9%:</span><span>₹${data.sgst.toFixed(2)}</span></div>
+                    ` : ''}
+                    <div class="flex justify-between font-black text-[14px] mt-1 border-y border-black py-1 mb-2">
+                        <span>TOTAL:</span><span>₹ ${Math.round(data.grandTotal).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div class="font-bold text-[11px] uppercase text-center">
+                        ${window.numberToWords ? window.numberToWords(Math.round(data.grandTotal)) : ''}
+                    </div>
+                </div>
+
+                <div class="mt-12 flex justify-between items-end font-bold px-2">
+                    <span>Receiver's Sign</span>
+                    <span>___________</span>
+                </div>
+            </div>
+            ` : ''}
+        </div>`;
+
+        // Wrap them so setPrintLayout can toggle them
         html = `
+            <div class="a4-layout-container">${a4Html}</div>
+            <div class="thermal-layout-container hidden" style="display: none;">${thermalHtml}</div>
+        `;
+
+    } else if (type === 'STATEMENT') {
+        const statementHtml = `
         <div class="text-black font-sans w-full" style="box-sizing: border-box; overflow: visible;">
             <div class="flex flex-col items-center mb-4">
                 <img src="assets/logo.png" alt="Mangala Logo" class="w-16 h-16 object-contain mb-2 filter-primary-blue" style="filter: invert(18%) sepia(99%) saturate(2740%) hue-rotate(213deg) brightness(93%) contrast(99%) !important;">
-                <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 38px; color: #0033cc !important; line-height: 1;">Mangala Body Builders</h1>
+                <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 38px; color: #0033cc !important; line-height: 1;">${COMPANY_DETAILS.name}</h1>
             </div>
             <p class="text-center font-bold text-sm mb-6 uppercase tracking-widest border-y border-black py-1" style="color: black !important;">Client Ledger Statement</p>
             
@@ -286,11 +404,19 @@ function openPrintPreview(type, data) {
             </table>
             <div class="mt-12 text-[10px] text-center text-gray-500 font-bold uppercase tracking-widest">--- END OF STATEMENT ---</div>
         </div>`;
+
+        html = `
+            <div class="a4-layout-container">${statementHtml}</div>
+            <div class="thermal-layout-container hidden" style="display: none;">
+               <p class="text-center font-bold text-xl mt-10">Statements are designed for A4 layout only.</p>
+            </div>
+        `;
     }
 
     content.innerHTML = html;
 
-    setPrintLayout('a4', 'color');
+    // Reset to A4 by default when opening
+    setPrintLayout('a4');
     view.classList.add('active');
     document.getElementById('app-container').classList.add('hidden');
 

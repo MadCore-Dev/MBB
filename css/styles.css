@@ -10,6 +10,10 @@
         display: none !important;
     }
 
+    .modal-overlay {
+        display: none !important;
+    }
+
     html,
     body {
         background: white !important;
