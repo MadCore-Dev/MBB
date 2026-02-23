@@ -1,0 +1,32 @@
+[
+    {
+        "shortName": "Reliable",
+        "printName": "RELIABLE SERVICES",
+        "address": "Pune",
+        "gstin": "27AABFR5034L1Z3"
+    },
+    {
+        "shortName": "Maitreya",
+        "printName": "MAITREYA TRANS SOLUTIONS",
+        "address": "Moshi",
+        "gstin": "27AAUFM0399N1ZB"
+    },
+    {
+        "shortName": "Sant Krupa",
+        "printName": "SANT KRUPA TRAVELS",
+        "address": "Haveli",
+        "gstin": "27AMTPP3639H1ZF"
+    },
+    {
+        "shortName": "Kamavida",
+        "printName": "KAM-AVIDA ENVIRO",
+        "address": "Pune",
+        "gstin": "27AABCK2355G1ZP"
+    },
+    {
+        "shortName": "Tej Travels",
+        "printName": "TEJ TRAVELS",
+        "address": "Mumbai",
+        "gstin": ""
+    }
+]

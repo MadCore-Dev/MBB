@@ -35,7 +35,16 @@ function showDetails(type, id) {
                  <div class="border-t pt-2 flex justify-between font-bold text-primary-600"><span>TOTAL</span><span>₹${item.totalCost}</span></div>
               </div>
            </div>
-           ${isBilled ? `<p class="text-[10px] text-rose-500 font-bold bg-rose-50 dark:bg-rose-900/10 p-2 rounded-lg mt-2 italic text-center">Billed Entry: Edit/Delete disabled. Delete related invoice first.</p>` : ''}
+           ${isBilled ? `
+             <div class="flex justify-between items-center bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl mt-4 border border-blue-100 dark:border-blue-800">
+               <div>
+                 <p class="text-[10px] font-bold text-blue-500 uppercase">Billed On</p>
+                 <p class="font-bold text-sm text-blue-700 dark:text-blue-400">${appDB.documents.find(d => d.docId === item.docId)?.docNumber || 'Invoice'}</p>
+               </div>
+               <button onclick="openLinkedDoc('INV', '${item.docId}')" class="text-xs font-bold bg-white dark:bg-blue-800 text-blue-600 dark:text-white px-3 py-1.5 rounded-lg shadow-sm">View &rarr;</button>
+             </div>
+             <p class="text-[10px] text-rose-500 font-bold bg-rose-50 dark:bg-rose-900/10 p-2 rounded-lg mt-2 italic text-center">Billed Entry: Edit/Delete disabled. Delete related invoice first.</p>
+           ` : ''}
         </div>`;
         if (!isBilled) {
             modalFooter.innerHTML = `<button onclick="deleteWE('${item.entryId}')" class="text-rose-500 font-bold px-4 py-2 hover:bg-rose-50 rounded-lg">Delete</button>
@@ -48,6 +57,22 @@ function showDetails(type, id) {
         const client = getClientById(item.clientId);
         const isLocked = item.status === 'LOCKED';
         modalTitle.innerText = "Invoice Detail";
+        const isTaxable = item.isTaxable !== false; // default true for backwards compatibility
+        const taxToggleHtml = isLocked
+            ? `<div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">GST TYPE</span><span class="font-bold ${isTaxable ? 'text-emerald-600' : 'text-amber-600'}">${isTaxable ? 'Taxable (18% GST)' : 'Non-Taxable (Memo)'}</span></div>`
+            : `<div class="flex justify-between items-center border-b pb-2">
+                 <span class="text-xs font-bold text-slate-400">GST TYPE</span>
+                 <label class="flex items-center gap-2 cursor-pointer">
+                   <span class="text-xs font-semibold ${!isTaxable ? 'text-amber-600' : 'text-slate-400'}">Non-Taxable</span>
+                   <div class="relative">
+                     <input type="checkbox" id="gst-toggle-${item.docId}" class="sr-only" ${isTaxable ? 'checked' : ''} onchange="recalculateInvoiceTax('${item.docId}', this.checked)">
+                     <div class="w-10 h-5 rounded-full transition-colors ${isTaxable ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'} flex items-center px-0.5">
+                       <div class="w-4 h-4 bg-white rounded-full shadow transition-transform ${isTaxable ? 'translate-x-5' : 'translate-x-0'}"></div>
+                     </div>
+                   </div>
+                   <span class="text-xs font-semibold ${isTaxable ? 'text-emerald-600' : 'text-slate-400'}">Taxable (18%)</span>
+                 </label>
+               </div>`;
         html = `
         <div class="space-y-3">
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">DOC NO</span><span class="font-bold">${item.docNumber}</span></div>
@@ -55,11 +80,24 @@ function showDetails(type, id) {
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">DATE</span><span class="font-bold">${formatDate(item.date)}</span></div>
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">TOTAL</span><span class="font-black">₹${Math.round(item.grandTotal)}</span></div>
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">STATUS</span><span class="px-2 py-0.5 rounded-full text-[10px] font-black ${isLocked ? 'bg-slate-800 text-white' : 'bg-amber-100 text-amber-700'}">${item.status}</span></div>
+           ${taxToggleHtml}
+           ${item.linkedQuoteId ? `
+             <div class="flex justify-between items-center bg-purple-50 dark:bg-purple-900/20 p-3 rounded-xl mt-4 border border-purple-100 dark:border-purple-800">
+               <div>
+                 <p class="text-[10px] font-bold text-purple-500 uppercase">Generated From</p>
+                 <p class="font-bold text-sm text-purple-700 dark:text-purple-400">Quote ${appDB.documents.find(d => d.docId === item.linkedQuoteId)?.docNumber || ''}</p>
+               </div>
+               <button onclick="openLinkedDoc('QUOTE', '${item.linkedQuoteId}')" class="text-xs font-bold bg-white dark:bg-purple-800 text-purple-600 dark:text-white px-3 py-1.5 rounded-lg shadow-sm">&larr; View</button>
+             </div>
+           ` : ''}
         </div>`;
         modalFooter.innerHTML = `
             <button onclick="deleteInvoice('${item.docId}')" class="text-rose-500 font-bold px-4 py-2 hover:bg-rose-50 rounded-lg ${isLocked ? 'hidden' : ''}">Delete</button>
             <button onclick="reprintDoc('${item.docId}')" class="bg-primary-600 text-white px-6 py-2 rounded-xl">Print / Preview</button>
-            <button onclick="lockInvoice('${item.docId}', ${!isLocked})" class="bg-slate-800 text-white px-6 py-2 rounded-xl">${isLocked ? 'Unlock' : 'Lock & Send'}</button>
+            ${isLocked
+              ? `<span class="bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-6 py-2 rounded-xl font-bold text-sm cursor-not-allowed">Locked ✓</span>`
+              : `<button onclick="lockInvoice('${item.docId}')" class="bg-slate-800 text-white px-6 py-2 rounded-xl">Lock &amp; Send</button>`
+            }
         `;
         modalFooter.classList.remove('hidden');
     } else if (type === 'QUOTE') {
@@ -73,10 +111,23 @@ function showDetails(type, id) {
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">CLIENT</span><span class="font-bold">${client.shortName}</span></div>
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">VEHICLE</span><span class="font-bold uppercase">${item.lineItems[0] ? item.lineItems[0].vehicle : '--'}</span></div>
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">TOTAL</span><span class="font-black">₹${item.grandTotal}</span></div>
+           ${item.isConverted && item.linkedDocId ? `
+             <div class="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl mt-4 border border-emerald-100 dark:border-emerald-800">
+               <div>
+                 <p class="text-[10px] font-bold text-emerald-500 uppercase">Converted To</p>
+                 <p class="font-bold text-sm text-emerald-700 dark:text-emerald-400">${appDB.documents.find(d => d.docId === item.linkedDocId)?.docNumber || 'Invoice'}</p>
+               </div>
+               <button onclick="openLinkedDoc('INV', '${item.linkedDocId}')" class="text-xs font-bold bg-white dark:bg-emerald-800 text-emerald-600 dark:text-white px-3 py-1.5 rounded-lg shadow-sm">View &rarr;</button>
+             </div>
+           ` : ''}
         </div>`;
         modalFooter.innerHTML = `
             <button onclick="deleteQuote('${item.docId}')" class="text-rose-500 font-bold px-4 py-2 hover:bg-rose-50 rounded-lg">Delete</button>
             <button onclick="reprintDoc('${item.docId}')" class="bg-primary-600 text-white px-6 py-2 rounded-xl">Print</button>
+            ${!item.isConverted
+                ? `<button onclick="convertQuoteToInvoice('${item.docId}')" class="bg-emerald-600 text-white px-6 py-2 rounded-xl shadow-md">Convert to Invoice</button>`
+                : `<span class="bg-emerald-100 text-emerald-700 font-bold px-6 py-2 rounded-xl flex items-center gap-2"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg> Converted</span>`
+            }
         `;
         modalFooter.classList.remove('hidden');
     } else if (type === 'PAY') {
@@ -99,12 +150,15 @@ function showDetails(type, id) {
         modalTitle.innerText = "Client Detail";
         html = `
         <div class="space-y-3">
-           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">SHORT NAME</span><span class="font-bold">${item.shortName}</span></div>
+           <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">SHORT NAME</span><span class="font-bold">${item.shortName} ${item.isArchived ? '<span class="text-[9px] bg-slate-200 text-slate-500 px-1 py-0.5 rounded ml-1">ARCHIVED</span>' : ''}</span></div>
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">PRINT NAME</span><span class="font-bold">${item.printName}</span></div>
            <div><p class="text-[10px] font-bold text-slate-400 uppercase mb-1">ADDRESS</p><p class="bg-slate-50 dark:bg-slate-800 p-2 rounded-xl text-xs">${item.address || "N/A"}</p></div>
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">GSTIN</span><span class="font-mono font-bold">${item.gstin || "N/A"}</span></div>
         </div>`;
-        modalFooter.innerHTML = `<button onclick="editClient('${item.clientId}')" class="bg-slate-800 text-white px-6 py-2 rounded-xl">Edit Data</button>`;
+        modalFooter.innerHTML = `
+            <button onclick="archiveClient('${item.clientId}')" class="text-slate-500 hover:text-rose-500 font-bold px-4 py-2 hover:bg-slate-50 rounded-lg">${item.isArchived ? 'Unarchive Client' : 'Archive Client'}</button>
+            <button onclick="editClient('${item.clientId}')" class="bg-slate-800 text-white px-6 py-2 rounded-xl">Edit Data</button>
+        `;
         modalFooter.classList.remove('hidden');
     }
     
@@ -112,10 +166,21 @@ function showDetails(type, id) {
     openModal('modal-details');
 }
 
+function openLinkedDoc(type, id) {
+    closeAllModals(); // Close current modal first
+    setTimeout(() => {
+        showDetails(type, id);
+    }, 150); // Small delay for modal transition
+}
+
 // --- CORE DATA HELPERS ---
 function populateDatalists() {
     const clientList = document.getElementById('client-datalist');
-    if (clientList) clientList.innerHTML = appDB.clients.map(c => `<option value="${c.shortName}">`).join('');
+    if (clientList) {
+        clientList.innerHTML = appDB.clients
+            .filter(c => !c.isArchived)
+            .map(c => `<option value="${c.shortName}">`).join('');
+    }
     
     const workHistory = document.getElementById('work-history-list');
     if (workHistory) {
@@ -202,9 +267,9 @@ function saveWorkEntry() {
 }
 
 function clearWEFilters() {
+    document.getElementById('filter-we-month').value = '';
     document.getElementById('filter-we-client').value = '';
-    document.getElementById('filter-we-status').value = 'ALL';
-    renderWorkEntriesList();
+    setFilter('we', 'UNBILLED');
 }
 
 function renderWorkEntriesList() {
@@ -241,7 +306,7 @@ function renderWorkEntriesList() {
             <div class="flex justify-between items-start">
                <div class="flex items-center gap-3">
                   <div onclick="event.stopPropagation()">${cb}</div>
-                  <div><p class="text-[10px] text-slate-400 font-bold uppercase">${formatDate(w.date)}</p><p class="font-bold text-slate-900 dark:text-white">${c.shortName}</p></div>
+                  <div><p class="text-[10px] text-slate-400 font-bold uppercase">${formatDate(w.date)}</p><p class="font-black text-slate-900 dark:text-white">${c.shortName}</p></div>
                </div>
                <div class="text-right"><p class="font-extrabold text-primary-600">${w.vehicle}</p><p class="font-black">₹${w.totalCost}</p></div>
             </div>
@@ -313,6 +378,7 @@ function bulkGenerateBill() {
     appDB.documents.push({
         docId: docId, type: 'INVOICE', docNumber: 'DRAFT',
         clientId: cid, date: new Date().toISOString().split('T')[0], status: 'DRAFT',
+        isTaxable: true,
         lineItems: lineItems, taxable: tax, cgst: tax * 0.09, sgst: tax * 0.09, grandTotal: tax * 1.18
     });
 
@@ -321,9 +387,9 @@ function bulkGenerateBill() {
 
 // --- TAB 2: INVOICES ---
 function clearInvFilters() {
+    document.getElementById('filter-inv-month').value = '';
     document.getElementById('filter-inv-client').value = '';
-    document.getElementById('filter-inv-status').value = 'ALL';
-    renderInvoices();
+    setFilter('inv', 'ALL');
 }
 
 function renderInvoices() {
@@ -345,8 +411,8 @@ function renderInvoices() {
         const isLocked = d.status === 'LOCKED';
         const opt = [
             { label: 'Print / Preview', onClick: `reprintDoc('${d.docId}')`, classes: 'text-primary-600' },
-            { label: isLocked ? 'Unlock Invoice' : 'Lock & Send', onClick: `lockInvoice('${d.docId}', ${!isLocked})`, classes: isLocked ? 'text-amber-600' : 'text-emerald-600' },
-            { label: 'Delete Invoice', onClick: `deleteInvoice('${d.docId}')`, classes: 'text-rose-600' }
+            ...(!isLocked ? [{ label: 'Lock & Send', onClick: `lockInvoice('${d.docId}')`, classes: 'text-emerald-600' }] : []),
+            ...(!isLocked ? [{ label: 'Delete Invoice', onClick: `deleteInvoice('${d.docId}')`, classes: 'text-rose-600' }] : [])
         ];
         return `
         <tr class="hidden md:table-row border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 pointer transition-colors" onclick="showDetails('INV', '${d.docId}')">
@@ -373,21 +439,63 @@ function renderInvoices() {
     }).join('');
 }
 
-function lockInvoice(id, lock) {
+function lockInvoice(id) {
     const d = appDB.documents.find(doc => doc.docId === id);
-    if (d) {
-        if (lock && d.docNumber === 'DRAFT') {
-            const nextNo = 1000 + appDB.documents.filter(doc => doc.type === 'INVOICE' && doc.docNumber !== 'DRAFT').length + 1;
-            d.docNumber = 'INV-' + nextNo;
-        }
-        d.status = lock ? 'LOCKED' : 'DRAFT';
-        saveDB(); renderInvoices();
+    if (!d || d.status === 'LOCKED') return; // One-way: DRAFT → LOCKED only
+    
+    if (d.docNumber === 'DRAFT') {
+        const dDate = new Date(d.date);
+        const yy = dDate.getFullYear().toString().slice(-2);
+        const mm = (dDate.getMonth() + 1).toString().padStart(2, '0');
+        const isTaxable = d.isTaxable !== false;
+        const prefix = `${yy}${mm}-${isTaxable ? 'R' : 'M'}`;
+        
+        // Find existing invoices in this exact sequence
+        const existingInThisSeq = appDB.documents
+            .filter(doc => doc.type === 'INVOICE' && doc.status === 'LOCKED' && doc.docNumber.startsWith(prefix))
+            .map(doc => parseInt(doc.docNumber.replace(prefix, ''), 10))
+            .filter(n => !isNaN(n));
+            
+        const highestSeq = existingInThisSeq.length > 0 ? Math.max(...existingInThisSeq) : 0;
+        const nextSeq = (highestSeq + 1).toString().padStart(3, '0');
+        
+        d.docNumber = prefix + nextSeq;
     }
+    
+    d.status = 'LOCKED';
+    saveDB(); refreshUI(); closeAllModals();
+}
+
+function recalculateInvoiceTax(docId, isTaxable) {
+    const d = appDB.documents.find(doc => doc.docId === docId);
+    if (!d || d.status === 'LOCKED') return;
+    d.isTaxable = isTaxable;
+    const base = d.lineItems.reduce((sum, it) => sum + it.cost, 0);
+    d.taxable = base;
+    d.cgst = isTaxable ? base * 0.09 : 0;
+    d.sgst = isTaxable ? base * 0.09 : 0;
+    d.grandTotal = isTaxable ? base * 1.18 : base;
+    saveDB();
+    // Re-render the modal in place to reflect new totals
+    showDetails('INV', docId);
+}
+
+function setFilter(type, val) {
+    document.getElementById(`filter-${type}-status`).value = val;
+    // Update active UI state for pills
+    const parentContainer = document.getElementById(`filter-${type}-status`).nextElementSibling;
+    parentContainer.querySelectorAll('button').forEach(btn => {
+        btn.className = "pill-btn whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors";
+    });
+    document.getElementById(`btn-${type}-${val}`).className = "pill-btn whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold bg-primary-600 text-white transition-colors shadow-sm";
+    
+    if (type === 'we') renderWorkEntriesList();
+    if (type === 'inv') renderInvoices();
 }
 
 function deleteInvoice(id) {
     const d = appDB.documents.find(doc => doc.docId === id);
-    if (d && d.status === 'LOCKED') return alert("Locked invoices cannot be deleted. Unlock them first.");
+    if (d && d.status === 'LOCKED') return alert("Locked invoices cannot be deleted. They are permanently locked for accounting integrity.");
     if (!confirm("Delete Invoice? Related work entries will become UNBILLED.")) return;
     appDB.work_entries.forEach(w => { if (w.docId === id) { w.status = 'UNBILLED'; w.docId = null; } });
     appDB.documents = appDB.documents.filter(d => d.docId !== id);
@@ -442,6 +550,40 @@ function generateQuote() {
     appDB.documents.push(docData);
     saveDB(); refreshUI(); closeAllModals(); 
     openPrintPreview('QUOTATION', docData);
+}
+
+function convertQuoteToInvoice(quoteId) {
+    const quote = appDB.documents.find(d => d.docId === quoteId);
+    if (!quote || quote.isConverted) return;
+    
+    // Create new Invoice based on quote
+    const newDocId = 'DOC-' + Date.now();
+    const invoice = {
+        docId: newDocId,
+        type: 'INVOICE',
+        docNumber: 'DRAFT',
+        clientId: quote.clientId,
+        date: new Date().toISOString().split('T')[0],
+        status: 'DRAFT',
+        isTaxable: true,
+        lineItems: JSON.parse(JSON.stringify(quote.lineItems)), // Deep copy items
+        taxable: quote.taxable,
+        cgst: quote.taxable * 0.09,
+        sgst: quote.taxable * 0.09,
+        grandTotal: quote.taxable * 1.18,
+        linkedQuoteId: quote.docId
+    };
+    
+    appDB.documents.push(invoice);
+    
+    // Update original quote to mark it converted
+    quote.isConverted = true;
+    quote.linkedDocId = newDocId;
+    
+    saveDB();
+    refreshUI();
+    closeAllModals();
+    switchTab('bills'); // Jump to invoices to see the new DRAFT
 }
 
 function renderQuotes() {
@@ -593,17 +735,32 @@ function saveClient() {
 
 function renderClients() {
     const tbody = document.getElementById('clients-tbody');
-    tbody.innerHTML = appDB.clients.map(c => `
-    <tr class="hidden md:table-row border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 pointer transition-colors" onclick="showDetails('CLIENT', '${c.clientId}')">
-        <td class="p-4 font-bold">${c.shortName}</td>
+    
+    // Sort active clients first, archived clients last
+    const sortedClients = [...appDB.clients].sort((a, b) => {
+        if (a.isArchived === b.isArchived) return a.shortName.localeCompare(b.shortName);
+        return a.isArchived ? 1 : -1;
+    });
+
+    tbody.innerHTML = sortedClients.map(c => {
+        const rowOpacity = c.isArchived ? 'opacity-50 grayscale bg-slate-50 dark:bg-slate-900/50' : '';
+        const badge = c.isArchived ? '<span class="text-[9px] bg-slate-300 text-slate-700 px-1.5 py-0.5 rounded ml-2 font-bold uppercase tracking-wider">Archived</span>' : '';
+        
+        return `
+    <tr class="hidden md:table-row border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 pointer transition-colors ${rowOpacity}" onclick="showDetails('CLIENT', '${c.clientId}')">
+        <td class="p-4 font-bold flex items-center">${c.shortName} ${badge}</td>
         <td class="p-4">${c.printName}</td>
-        <td class="p-4 font-mono text-xs">${c.gstin}</td>
+        <td class="p-4 font-mono text-xs">${c.gstin || '--'}</td>
         <td class="p-4 text-center" onclick="event.stopPropagation()"><button onclick="editClient('${c.clientId}')" class="text-primary-600 font-bold p-2 hover:bg-primary-50 rounded-lg">Edit</button></td>
     </tr>
-    <div class="md:hidden bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex justify-between items-center" onclick="showDetails('CLIENT', '${c.clientId}')">
-       <div><p class="font-bold text-slate-900 dark:text-white">${c.shortName}</p><p class="text-[10px] text-slate-400 truncate w-40">${c.printName}</p></div>
+    <div class="md:hidden p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex justify-between items-center mb-3 ${rowOpacity ? 'bg-slate-100 dark:bg-slate-900' : 'bg-white dark:bg-slate-800 shadow-sm'}" onclick="showDetails('CLIENT', '${c.clientId}')">
+       <div>
+           <p class="font-bold text-slate-900 dark:text-white">${c.shortName} ${badge}</p>
+           <p class="text-[10px] text-slate-500 truncate w-40">${c.printName}</p>
+       </div>
        <button class="text-primary-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
-    </div>`).join('');
+    </div>`;
+    }).join('');
 }
 
 function editClient(id) {
@@ -612,8 +769,23 @@ function editClient(id) {
     document.getElementById('client-edit-id').value = c.clientId;
     document.getElementById('client-short').value = c.shortName;
     document.getElementById('client-print').value = c.printName;
-    document.getElementById('client-address').value = c.address;
-    document.getElementById('client-gstin').value = c.gstin;
+    document.getElementById('client-address').value = c.address || '';
+    document.getElementById('client-gstin').value = c.gstin || '';
+}
+
+function archiveClient(id) {
+    const c = appDB.clients.find(x => x.clientId === id);
+    if (!c) return;
+    
+    // Toggle archival state
+    c.isArchived = !c.isArchived;
+    saveDB();
+    
+    // Refresh modal in place if currently viewing it
+    showDetails('CLIENT', id);
+    // Refresh background lists
+    populateDatalists();
+    renderClients();
 }
 
 // Global exports
@@ -638,11 +810,14 @@ window.bulkGenerateBill = bulkGenerateBill;
 window.clearInvFilters = clearInvFilters;
 window.renderInvoices = renderInvoices;
 window.lockInvoice = lockInvoice;
+window.recalculateInvoiceTax = recalculateInvoiceTax;
+window.setFilter = setFilter;
 window.deleteInvoice = deleteInvoice;
 window.openQuoteModal = openQuoteModal;
 window.addQuoteItem = addQuoteItem;
 window.removeQuoteItem = removeQuoteItem;
 window.generateQuote = generateQuote;
+window.convertQuoteToInvoice = convertQuoteToInvoice;
 window.renderQuotes = renderQuotes;
 window.deleteQuote = deleteQuote;
 window.savePayment = savePayment;
@@ -653,3 +828,4 @@ window.openClientModal = openClientModal;
 window.saveClient = saveClient;
 window.renderClients = renderClients;
 window.editClient = editClient;
+window.archiveClient = archiveClient;

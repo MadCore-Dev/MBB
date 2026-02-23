@@ -19,6 +19,13 @@ function setPrintLayout(mode) {
     if (!container) return;
     container.className = (mode === 'thermal') ? 'preview-thermal bg-white relative text-black mx-auto' : 'preview-a4 bg-white relative text-black mx-auto';
     document.body.className = (mode === 'thermal') ? 'print-thermal' : 'print-a4';
+    
+    // Update logo color based on mode
+    const logo = container.querySelector('.logo-box');
+    if (logo) {
+        logo.classList.remove('logo-blue', 'logo-black');
+        logo.classList.add(mode === 'thermal' ? 'logo-black' : 'logo-blue');
+    }
 }
 
 function openPrintPreview(type, data) {
@@ -31,14 +38,71 @@ function openPrintPreview(type, data) {
 
     if (type === 'INVOICE' || type === 'QUOTATION') {
         const isInv = (type === 'INVOICE');
+        const isTaxable = !isInv || data.isTaxable !== false;
+        const docLabel = isInv ? (isTaxable ? 'TAX INVOICE' : 'MEMO / BILL') : 'QUOTATION';
+
+        // Group line items by Date + Vehicle to eliminate per-row repetition
+        const groups = [];
+        const groupIndex = {};
+        data.lineItems.forEach(it => {
+            const key = `${it.date || ''}__${it.vehicle || ''}`;
+            if (groupIndex[key] === undefined) {
+                groupIndex[key] = groups.length;
+                groups.push({ date: it.date || '', vehicle: it.vehicle || '', items: [] });
+            }
+            groups[groupIndex[key]].items.push(it);
+        });
+
+        let rowCounter = 0;
+        const itemRowsHtml = groups.map(g => {
+            const groupHeaderHtml = (g.date || g.vehicle) ? `
+            <tr class="bg-slate-50 border-b border-slate-300">
+                <td colspan="3" class="p-2 px-3 text-xs font-bold text-slate-600">
+                    ${g.date ? `<span>${g.date}</span>` : ''}
+                    ${g.date && g.vehicle ? ' &nbsp;|&nbsp; ' : ''}
+                    ${g.vehicle ? `<span class="uppercase">${g.vehicle}</span>` : ''}
+                </td>
+            </tr>` : '';
+            const itemRows = g.items.map(it => {
+                rowCounter++;
+                return `
+            <tr class="border-b border-gray-200">
+                <td class="p-3 border-r border-black text-center">${rowCounter}</td>
+                <td class="p-3 border-r border-black">${it.workDone}</td>
+                <td class="p-3 text-right font-medium">${it.cost.toFixed(2)}</td>
+            </tr>`;
+            }).join('');
+            return groupHeaderHtml + itemRows;
+        }).join('');
+
+        // Padding rows to fill to at least 10 visible data rows
+        const paddingRows = Array(Math.max(0, 10 - rowCounter)).fill(0).map(() => `
+            <tr class="border-b border-gray-100 h-10">
+                <td class="border-r border-black"></td><td class="border-r border-black"></td><td></td>
+            </tr>`).join('');
+
+        // Conditionally render CGST/SGST rows for taxable invoices only
+        const taxRowsHtml = isTaxable ? `
+                <tr class="font-bold">
+                    <td colspan="2" class="p-2 text-right border-r border-black text-xs">CGST (9%)</td>
+                    <td class="p-2 text-right text-xs">${data.cgst.toFixed(2)}</td>
+                </tr>
+                <tr class="font-bold">
+                    <td colspan="2" class="p-2 text-right border-r border-black text-xs">SGST (9%)</td>
+                    <td class="p-2 text-right text-xs">${data.sgst.toFixed(2)}</td>
+                </tr>` : '';
+
         html = `
         <div class="p-8 border-b-2 border-black flex justify-between items-start">
-            <div>
-                <h1 class="text-3xl font-black tracking-tighter">MANGALA BODY BUILDERS</h1>
-                <p class="text-xs font-bold leading-tight">BODY REPAIRING, PAINTING & FABRICATION<br>Sr. No. 44, Near Nanekar Garage, Chakan-Talegaon Road,<br>Nanekarwadi, Chakan, Pune - 410501</p>
+            <div class="flex gap-4 items-center">
+                <img src="assets/logo.png" alt="Mangala Logo" class="w-16 h-16 object-contain">
+                <div>
+                    <h1 class="text-3xl font-black tracking-tighter">MANGALA BODY BUILDERS</h1>
+                    <p class="text-xs font-bold leading-tight">BODY REPAIRING, PAINTING &amp; FABRICATION<br>Sr. No. 44, Near Nanekar Garage, Chakan-Talegaon Road,<br>Nanekarwadi, Chakan, Pune - 410501</p>
+                </div>
             </div>
             <div class="text-right">
-                <h2 class="text-xl font-bold bg-black text-white px-4 py-1 inline-block">${isInv ? 'TAX INVOICE' : 'QUOTATION'}</h2>
+                <h2 class="text-xl font-bold bg-black text-white px-4 py-1 inline-block">${docLabel}</h2>
                 <p class="text-sm mt-2 font-bold">No: ${data.docNumber}<br>Date: ${data.date}</p>
             </div>
         </div>
@@ -67,37 +131,18 @@ function openPrintPreview(type, data) {
                 </tr>
             </thead>
             <tbody class="min-h-[400px]">
-                ${data.lineItems.map((it, idx) => `
-                <tr class="border-b border-gray-200">
-                    <td class="p-3 border-r border-black text-center">${idx + 1}</td>
-                    <td class="p-3 border-r border-black">
-                        <div class="font-bold text-xs">${it.date || ''} | ${it.vehicle || ''}</div>
-                        <div>${it.workDone}</div>
-                    </td>
-                    <td class="p-3 text-right font-medium">${it.cost.toFixed(2)}</td>
-                </tr>`).join('')}
-                ${Array(Math.max(0, 10 - data.lineItems.length)).fill(0).map(() => `
-                <tr class="border-b border-gray-100 h-10">
-                    <td class="border-r border-black"></td><td class="border-r border-black"></td><td></td>
-                </tr>`).join('')}
+                ${itemRowsHtml}
+                ${paddingRows}
             </tbody>
             <tfoot>
                 <tr class="border-t-2 border-black font-bold">
                     <td colspan="2" class="p-3 text-right border-r border-black">Taxable Amount</td>
                     <td class="p-3 text-right">${data.taxable.toFixed(2)}</td>
                 </tr>
-                ${isInv ? `
-                <tr class="font-bold">
-                    <td colspan="2" class="p-2 text-right border-r border-black text-xs">CGST (9%)</td>
-                    <td class="p-2 text-right text-xs">${data.cgst.toFixed(2)}</td>
-                </tr>
-                <tr class="font-bold">
-                    <td colspan="2" class="p-2 text-right border-r border-black text-xs">SGST (9%)</td>
-                    <td class="p-2 text-right text-xs">${data.sgst.toFixed(2)}</td>
-                </tr>` : ''}
+                ${taxRowsHtml}
                 <tr class="bg-black text-white font-black text-lg">
                     <td colspan="2" class="p-4 text-right border-r border-white italic">GRAND TOTAL (ROUNDED)</td>
-                    <td class="p-4 text-right">₹ ${Math.round(data.grandTotal).toLocaleString('en-IN')}.00</td>
+                    <td class="p-4 text-right">&#x20B9; ${Math.round(data.grandTotal).toLocaleString('en-IN')}.00</td>
                 </tr>
             </tfoot>
         </table>
@@ -106,7 +151,7 @@ function openPrintPreview(type, data) {
         </div>
         <div class="grid grid-cols-2 p-8 h-48">
             <div class="text-[10px]">
-                <p class="font-bold underline mb-2">Terms & Conditions:</p>
+                <p class="font-bold underline mb-2">Terms &amp; Conditions:</p>
                 <ol class="list-decimal pl-4 space-y-0.5">
                     <li>Certified that particulars are true and correct.</li>
                     <li>Goods once sold will not be taken back.</li>
@@ -121,7 +166,10 @@ function openPrintPreview(type, data) {
     } else if (type === 'STATEMENT') {
         html = `
         <div class="p-10">
-            <h1 class="text-2xl font-black text-center mb-1">MANGALA BODY BUILDERS</h1>
+            <div class="flex flex-col items-center mb-4">
+                <img src="assets/logo.png" alt="Mangala Logo" class="w-14 h-14 object-contain mb-2">
+                <h1 class="text-2xl font-black text-center mb-1">MANGALA BODY BUILDERS</h1>
+            </div>
             <p class="text-center font-bold text-sm mb-6 uppercase tracking-widest border-b-2 border-black pb-2">Client Ledger Statement</p>
             <div class="mb-8 flex justify-between items-end border-b border-dashed border-gray-400 pb-4">
                 <div>

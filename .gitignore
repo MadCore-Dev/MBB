@@ -15,3 +15,5 @@ node_modules/
 package-lock.json
 dist/
 build/
+tempReference/
+BUGS_AND_TASKS.md

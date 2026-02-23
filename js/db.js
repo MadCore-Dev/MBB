@@ -5,13 +5,24 @@ let draftWorkItems = [];
 let draftQuoteItems = []; 
 let printPayload = null;
 
-function initApp() {
+async function initApp() {
     const savedData = localStorage.getItem('mangala_erp_v3');
     if (savedData) {
         appDB = JSON.parse(savedData);
     } else {
         appDB = JSON.parse(JSON.stringify(defaultDatabase)); 
-        saveDB(); 
+    }
+
+    // Fetch and populate external clients if DB is new/empty
+    if (!appDB.clients || appDB.clients.length === 0) {
+        try {
+            const res = await fetch('data/clients.json');
+            const data = await res.json();
+            appDB.clients = data.map(c => ({ clientId: 'C-' + Date.now() + Math.random(), ...c }));
+            saveDB();
+        } catch (err) {
+            console.error('Failed to load external clients data:', err);
+        }
     }
 
     const today = new Date().toISOString().split('T')[0];
@@ -127,19 +138,11 @@ function injectDummyData() {
 
     setTimeout(() => {
         try {
-            const defaultTestClients = [
-                { shortName: "Reliable", printName: "RELIABLE SERVICES", address: "Pune", gstin: "27AABFR5034L1Z3" },
-                { shortName: "Maitreya", printName: "MAITREYA TRANS SOLUTIONS", address: "Moshi", gstin: "27AAUFM0399N1ZB" },
-                { shortName: "Sant Krupa", printName: "SANT KRUPA TRAVELS", address: "Haveli", gstin: "27AMTPP3639H1ZF" },
-                { shortName: "Kamavida", printName: "KAM-AVIDA ENVIRO", address: "Pune", gstin: "27AABCK2355G1ZP" },
-                { shortName: "Tej Travels", printName: "TEJ TRAVELS", address: "Mumbai", gstin: "" }
-            ];
-
-            defaultTestClients.forEach(c => {
-                if (!appDB.clients.find(existing => existing.shortName === c.shortName)) {
-                    appDB.clients.push({ clientId: 'C-' + Date.now() + Math.random(), ...c });
-                }
-            });
+            if (appDB.clients.length === 0) {
+                alert("Clients data not loaded yet. Refresh the page or try again.");
+                btns.forEach(b => { b.innerHTML = b.dataset.txt; b.disabled = false; });
+                return;
+            }
 
             const works = ["FRONT BUMPHER DENTING", "SEAT WELDING #3", "GLASS FITTING", "PAINT TOUCHUP", "LOCK SETTING", "DIESEL TANK ZALI", "GUARD PIPE FITTING"];
             const vehs = ["MH14CW7474", "EICHER BUS", "MH12FZ8311", "MH04G7107", "MH06S7836", "MH14GD9295"];
