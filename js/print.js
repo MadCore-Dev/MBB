@@ -17,18 +17,71 @@ function closePrintView() {
 function setPrintLayout(mode, colorMode = 'color') {
     const container = document.getElementById('print-content');
     if (!container) return;
-    container.className = (mode === 'thermal') ? 'preview-thermal bg-white relative text-black mx-auto' : 'preview-a4 bg-white relative text-black mx-auto';
-    document.body.className = (mode === 'thermal') ? 'print-thermal' : 'print-a4';
-    
-    // Update logo color based on mode
-    const logo = container.querySelector('img[alt="Mangala Logo"]');
+
+    // Explicitly prevent CSS from clipping dynamic content
+    container.style.overflow = 'visible';
+    container.style.height = 'auto'; // Let it stretch naturally
+
+    if (mode === 'thermal') {
+        container.className = 'preview-thermal bg-white relative text-black mx-auto print:mx-0 print:w-full print:shadow-none';
+        document.body.className = 'print-thermal';
+    } else {
+        container.className = 'preview-a4 bg-white relative text-black mx-auto print:mx-0 print:w-full print:shadow-none print:p-0';
+        document.body.className = 'print-a4';
+    }
+
+    const logo = container.querySelector('img[alt="MBB Logo"]');
     if (logo) {
         if (mode === 'thermal' || colorMode === 'bw') {
             logo.classList.remove('filter-primary-blue');
+            logo.style.cssText = 'filter: grayscale(100%) brightness(0%) !important;';
         } else {
             logo.classList.add('filter-primary-blue');
+            logo.style.cssText = 'filter: invert(18%) sepia(99%) saturate(2740%) hue-rotate(213deg) brightness(93%) contrast(99%) !important;';
         }
     }
+}
+
+function setPrintScale(scaleMode) {
+    const wrapper = document.getElementById('print-scale-wrapper');
+    const content = document.getElementById('print-content');
+    if (!wrapper || !content) return;
+
+    // Reset explicit heights to measure the true dynamic height
+    wrapper.style.height = 'auto';
+    content.style.height = 'auto';
+    content.style.overflow = 'visible';
+
+    // Get the base physical dimensions
+    const isThermal = document.body.classList.contains('print-thermal');
+    const baseWidth = isThermal ? 302 : 794;
+    // Measure natural document height, with A4 minimum fallback
+    const baseHeight = Math.max(isThermal ? 400 : 1123, content.offsetHeight);
+
+    // Calculate available screen space (minus padding/header)
+    const availableWidth = window.innerWidth - 32;
+    const availableHeight = window.innerHeight - 100;
+
+    let newScale = 1;
+
+    // 100% (Fit Page) evaluates BOTH height and width, scaling to whichever constraints it first 
+    // ensuring the ENTIRE document perfectly fits on your screen without scrolling or clipping.
+    if (scaleMode === '100%' || scaleMode === 'fit-page') {
+        const scaleW = availableWidth / baseWidth;
+        const scaleH = availableHeight / baseHeight;
+        newScale = Math.min(scaleW, scaleH);
+    } else if (scaleMode === 'fit-width') {
+        newScale = availableWidth / baseWidth;
+    }
+
+    newScale = Math.min(newScale, 2);
+    wrapper.style.setProperty('--print-scale', newScale.toFixed(3));
+
+    // CRITICAL FIX: Because CSS transform: scale() leaves visual ghost space, 
+    // we explicitly lock the wrapper's physical height to the scaled equivalent.
+    // This stops scroll-clipping and page overflow dead in its tracks.
+    wrapper.style.height = (baseHeight * newScale) + 'px';
+    wrapper.style.transformOrigin = 'top center';
 }
 
 function openPrintPreview(type, data) {
@@ -36,145 +89,166 @@ function openPrintPreview(type, data) {
     const content = document.getElementById('print-content');
     if (!view || !content) return;
 
+    view.classList.remove('bg-white', 'text-black');
+    view.classList.add('bg-slate-100', 'dark:bg-slate-950');
+
     let html = '';
     const client = appDB.clients.find(c => c.clientId === data.clientId) || { printName: 'Unknown Client', address: '', gstin: '' };
 
     if (type === 'INVOICE' || type === 'QUOTATION') {
         const isInv = (type === 'INVOICE');
         const isTaxable = !isInv || data.isTaxable !== false;
-        const docLabel = isInv ? (isTaxable ? 'TAX INVOICE' : 'MEMO / BILL') : 'QUOTATION';
+        const docLabel = isInv ? (isTaxable ? 'TAX INVOICE' : 'MEMO') : 'ESTIMATE / QUOTATION';
 
-        // Group line items by Date + Vehicle to eliminate per-row repetition
         const groups = [];
         const groupIndex = {};
         data.lineItems.forEach(it => {
             const key = `${it.date || ''}__${it.vehicle || ''}`;
             if (groupIndex[key] === undefined) {
                 groupIndex[key] = groups.length;
-                groups.push({ date: it.date || '', vehicle: it.vehicle || '', items: [] });
+                groups.push({ date: it.date || '', vehicle: it.vehicle || '', items: [], total: 0 });
             }
             groups[groupIndex[key]].items.push(it);
+            groups[groupIndex[key]].total += it.cost;
         });
 
-        let rowCounter = 0;
-        const itemRowsHtml = groups.map(g => {
-            const groupHeaderHtml = (g.date || g.vehicle) ? `
-            <tr class="bg-slate-50 border-b border-slate-300">
-                <td colspan="3" class="p-2 px-3 text-xs font-bold text-slate-600">
-                    ${g.date ? `<span>${g.date}</span>` : ''}
-                    ${g.date && g.vehicle ? ' &nbsp;|&nbsp; ' : ''}
-                    ${g.vehicle ? `<span class="uppercase">${g.vehicle}</span>` : ''}
-                </td>
-            </tr>` : '';
-            const itemRows = g.items.map(it => {
-                rowCounter++;
-                return `
-            <tr class="border-b border-gray-200">
-                <td class="p-3 border-r border-black text-center">${rowCounter}</td>
-                <td class="p-3 border-r border-black">${it.workDone}</td>
-                <td class="p-3 text-right font-medium">${it.cost.toFixed(2)}</td>
+        let itemRowsHtml = '';
+        groups.forEach(g => {
+            const workLines = g.items.map(it => `<div>${it.workDone}</div>`).join('');
+            const costLines = g.items.map(it => `<div>${it.cost.toFixed(2)}</div>`).join('');
+
+            // Standard thin inner borders to match the clean professional screenshot
+            itemRowsHtml += `
+            <tr style="border-bottom: 1px dashed black;">
+                <td class="p-2 align-top whitespace-nowrap" style="border-right: 1px solid black;">${formatDate(g.date)}</td>
+                <td class="p-2 align-top font-bold uppercase" style="border-right: 1px solid black;">${g.vehicle}</td>
+                <td class="p-2 align-top uppercase" style="border-right: 1px solid black;">${workLines}</td>
+                <td class="p-2 align-top text-right" style="border-right: 1px solid black;">${costLines}</td>
+                <td class="p-2 align-top text-right font-bold">${g.total.toFixed(2)}</td>
             </tr>`;
-            }).join('');
-            return groupHeaderHtml + itemRows;
-        }).join('');
+        });
 
-        // Padding rows to fill to at least 10 visible data rows
-        const paddingRows = Array(Math.max(0, 10 - rowCounter)).fill(0).map(() => `
-            <tr class="border-b border-gray-100 h-10">
-                <td class="border-r border-black"></td><td class="border-r border-black"></td><td></td>
-            </tr>`).join('');
-
-        // Conditionally render CGST/SGST rows for taxable invoices only
         const taxRowsHtml = isTaxable ? `
-                <tr class="font-bold">
-                    <td colspan="2" class="p-2 text-right border-r border-black text-xs">CGST (9%)</td>
-                    <td class="p-2 text-right text-xs">${data.cgst.toFixed(2)}</td>
-                </tr>
-                <tr class="font-bold">
-                    <td colspan="2" class="p-2 text-right border-r border-black text-xs">SGST (9%)</td>
-                    <td class="p-2 text-right text-xs">${data.sgst.toFixed(2)}</td>
-                </tr>` : '';
+            <tr>
+                <td colspan="4" class="p-1.5 text-right font-bold text-[11px]" style="border-right: 1px solid black; color: black !important;">TAXABLE VALUE</td>
+                <td class="p-1.5 text-right font-bold" style="color: black !important;">${data.taxable.toFixed(2)}</td>
+            </tr>
+            <tr>
+                <td colspan="4" class="p-1 text-right text-[10px] font-bold" style="border-right: 1px solid black; color: black !important;">ADD GST: CGST 9%</td>
+                <td class="p-1 text-right text-[10px] font-bold" style="color: black !important;">${data.cgst.toFixed(2)}</td>
+            </tr>
+            <tr>
+                <td colspan="4" class="p-1 text-right text-[10px] font-bold" style="border-right: 1px solid black; color: black !important;">SGST 9%</td>
+                <td class="p-1 text-right text-[10px] font-bold" style="color: black !important;">${data.sgst.toFixed(2)}</td>
+            </tr>` : `
+            <tr>
+                <td colspan="4" class="p-1.5 text-right font-bold text-[11px]" style="border-right: 1px solid black; color: black !important;">TAXABLE VALUE</td>
+                <td class="p-1.5 text-right font-bold" style="color: black !important;">${data.taxable.toFixed(2)}</td>
+            </tr>`;
 
         html = `
-        <div class="p-8 border-b-2 border-black flex justify-between items-start">
-            <div class="flex gap-4 items-center">
-                <img src="assets/logo.png" alt="Mangala Logo" class="w-16 h-16 object-contain">
-                <div>
-                    <h1 class="text-3xl font-black tracking-tighter">MANGALA BODY BUILDERS</h1>
-                    <p class="text-xs font-bold leading-tight">BODY REPAIRING, PAINTING &amp; FABRICATION<br>Sr. No. 44, Near Nanekar Garage, Chakan-Talegaon Road,<br>Nanekarwadi, Chakan, Pune - 410501</p>
+        <div class="text-black font-sans w-full" style="box-sizing: border-box; overflow: visible;">
+            
+            <!-- HEADER BLOCK (Classic Logo + Cursive Blue Type) -->
+            <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center justify-start w-1/4">
+                    <img src="assets/logo.png" alt="MBB Logo" class="w-20 h-20 object-contain filter-primary-blue" style="filter: invert(18%) sepia(99%) saturate(2740%) hue-rotate(213deg) brightness(93%) contrast(99%) !important;">
+                </div>
+                <div class="text-center w-2/4">
+                    <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 46px; color: #0033cc !important; line-height: 1; font-weight: normal; margin-bottom: 2px;">Mangala Body Builders</h1>
+                </div>
+                <div class="text-right text-[11px] font-bold w-1/4" style="color: black !important;">
+                    <p>Santosh : 9822325571</p>
+                    <p>Prashant : 9822356479</p>
                 </div>
             </div>
-            <div class="text-right">
-                <h2 class="text-xl font-bold bg-black text-white px-4 py-1 inline-block">${docLabel}</h2>
-                <p class="text-sm mt-2 font-bold">No: ${data.docNumber}<br>Date: ${data.date}</p>
+
+            <!-- TAGLINE & GSTIN ROW -->
+            <div class="text-center text-[10px] font-bold mb-2 flex justify-center gap-2" style="color: black !important;">
+                <span>We Undertake All Kinds of Bus Repairing, Painting, Cushion Works etc.</span>
+                ${isTaxable ? `<span>GSTIN: 27ALGPS0161C1Z4</span>` : ''}
             </div>
-        </div>
-        <div class="grid grid-cols-2 p-6 border-b border-black text-sm">
-            <div class="border-r border-black pr-4">
-                <p class="text-[10px] uppercase font-bold text-slate-500 mb-1">Billed To:</p>
-                <p class="font-bold text-lg">${client.printName}</p>
-                <p class="whitespace-pre-wrap">${client.address}</p>
-                <p class="font-bold mt-2">GSTIN: ${client.gstin}</p>
+
+            <!-- ADDRESS LINE (Thin border exactly as requested) -->
+            <div class="border-y border-black text-center py-1.5 text-[11px] font-medium mb-6" style="color: black !important;">
+                Address : Sr. No. 44, Near Nanekar Garage, Chakan-Talegaon Road, Nanekarwadi, Chakan, Pune - 410501.
             </div>
-            <div class="pl-6 space-y-1">
-                <p class="text-[10px] uppercase font-bold text-slate-500 mb-1">Our Details:</p>
-                <p>Proprietor: <strong>MANOJ SAMAL</strong></p>
-                <p>Contact: 9850607474 / 9623607474</p>
-                <p>GSTIN: <strong>27ALGPS0161C1Z4</strong> (Regular)</p>
-                <p>Bank: <strong>HDFC BANK, CHAKAN</strong></p>
-                <p>A/c: 50200067644265 (IFSC: HDFC0000492)</p>
+
+            <!-- CLIENT & DOCUMENT INFO -->
+            <div class="flex justify-between items-start mb-6 text-[12px]" style="color: black !important;">
+                <div class="w-1/2 flex gap-2">
+                    <span class="font-bold">To,</span>
+                    <div>
+                        <h2 class="font-bold text-base uppercase leading-none mb-1.5">${client.printName}</h2>
+                        <p class="whitespace-pre-wrap leading-tight mb-2">${client.address || ''}</p>
+                        ${isTaxable && client.gstin ? `<div class="mt-2"><span class="font-bold">GSTIN:</span> <span class="font-bold uppercase">${client.gstin}</span></div>` : ''}
+                    </div>
+                </div>
+                <div class="w-1/3 flex flex-col items-end text-right">
+                    <h2 class="font-bold text-lg uppercase tracking-widest border-b-[1.5px] border-black pb-0.5 mb-2 inline-block">${docLabel}</h2>
+                    <table class="text-[12px]">
+                        <tr><td class="pr-2 text-right">Invoice No.:</td><td class="font-bold text-left">${data.docNumber}</td></tr>
+                        <tr><td class="pr-2 text-right">Date:</td><td class="font-bold text-left">${formatDate(data.date)}</td></tr>
+                    </table>
+                </div>
             </div>
-        </div>
-        <table class="w-full text-sm">
-            <thead>
-                <tr class="bg-gray-100 border-b border-black font-bold">
-                    <th class="p-3 text-left border-r border-black w-12">#</th>
-                    <th class="p-3 text-left border-r border-black">Description of Goods/Services</th>
-                    <th class="p-3 text-right">Amount (₹)</th>
-                </tr>
-            </thead>
-            <tbody class="min-h-[400px]">
-                ${itemRowsHtml}
-                ${paddingRows}
-            </tbody>
-            <tfoot>
-                <tr class="border-t-2 border-black font-bold">
-                    <td colspan="2" class="p-3 text-right border-r border-black">Taxable Amount</td>
-                    <td class="p-3 text-right">${data.taxable.toFixed(2)}</td>
-                </tr>
-                ${taxRowsHtml}
-                <tr class="bg-black text-white font-black text-lg">
-                    <td colspan="2" class="p-4 text-right border-r border-white italic">GRAND TOTAL (ROUNDED)</td>
-                    <td class="p-4 text-right">&#x20B9; ${Math.round(data.grandTotal).toLocaleString('en-IN')}.00</td>
-                </tr>
-            </tfoot>
-        </table>
-        <div class="p-6 text-xs italic font-bold border-b border-black">
-            Amount in Words: ${window.numberToWords ? window.numberToWords(Math.round(data.grandTotal)) : ''}
-        </div>
-        <div class="grid grid-cols-2 p-8 h-48">
-            <div class="text-[10px]">
-                <p class="font-bold underline mb-2">Terms &amp; Conditions:</p>
-                <ol class="list-decimal pl-4 space-y-0.5">
-                    <li>Certified that particulars are true and correct.</li>
-                    <li>Goods once sold will not be taken back.</li>
-                    <li>Subject to Pune Jurisdiction.</li>
-                </ol>
+
+            <!-- THE 5-COLUMN TABLE -->
+            <table class="w-full text-[12px] border border-black" style="border-collapse: collapse; color: black !important;">
+                <thead>
+                    <tr class="font-bold text-left border-b border-black">
+                        <th class="p-2 w-[15%]" style="border-right: 1px solid black;">Date</th>
+                        <th class="p-2 w-[20%]" style="border-right: 1px solid black;">Vehicle No.</th>
+                        <th class="p-2 w-[40%]" style="border-right: 1px solid black;">Work</th>
+                        <th class="p-2 w-[12%] text-right" style="border-right: 1px solid black;">Cost</th>
+                        <th class="p-2 w-[13%] text-right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody class="align-top border-b border-black">
+                    ${itemRowsHtml}
+                    <!-- Dynamic Empty Extender Row -->
+                    <tr>
+                        <td class="h-24" style="border-right: 1px solid black;"></td>
+                        <td style="border-right: 1px solid black;"></td>
+                        <td style="border-right: 1px solid black;"></td>
+                        <td style="border-right: 1px solid black;"></td>
+                        <td></td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    ${taxRowsHtml}
+                    <tr class="border-t border-black">
+                        <td colspan="4" class="p-2 text-right font-bold" style="border-right: 1px solid black;">TOTAL</td>
+                        <td class="p-2 text-right font-black text-[13px]">₹ ${Math.round(data.grandTotal).toLocaleString('en-IN')}</td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <!-- AMOUNT IN WORDS ATTACHED DIRECTLY UNDER TABLE -->
+            <div class="border border-black border-t-0 p-2 text-[11px] font-bold uppercase mb-24" style="color: black !important;">
+                ${window.numberToWords ? window.numberToWords(Math.round(data.grandTotal)) : ''}
             </div>
-            <div class="flex flex-col justify-between items-end">
-                <p class="font-bold text-xs">For MANGALA BODY BUILDERS</p>
-                <p class="border-t border-black w-48 text-center pt-2 font-bold text-[10px]">Authorised Signatory</p>
+
+            <!-- SIGNATURE BLOCK -->
+            <div class="flex justify-between items-end text-[12px] font-bold px-2" style="color: black !important;">
+                <div>Receivers Signature</div>
+                <div class="text-center">
+                    <p class="mb-12">To, Mangala Body Builders</p>
+                    <p>Authorised Signature</p>
+                </div>
             </div>
+
         </div>`;
     } else if (type === 'STATEMENT') {
         html = `
-        <div class="p-10">
+        <div class="text-black font-sans w-full" style="box-sizing: border-box; overflow: visible;">
             <div class="flex flex-col items-center mb-4">
-                <img src="assets/logo.png" alt="Mangala Logo" class="w-14 h-14 object-contain mb-2">
-                <h1 class="text-2xl font-black text-center mb-1">MANGALA BODY BUILDERS</h1>
+                <img src="assets/logo.png" alt="Mangala Logo" class="w-16 h-16 object-contain mb-2 filter-primary-blue" style="filter: invert(18%) sepia(99%) saturate(2740%) hue-rotate(213deg) brightness(93%) contrast(99%) !important;">
+                <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 38px; color: #0033cc !important; line-height: 1;">Mangala Body Builders</h1>
             </div>
-            <p class="text-center font-bold text-sm mb-6 uppercase tracking-widest border-b-2 border-black pb-2">Client Ledger Statement</p>
-            <div class="mb-8 flex justify-between items-end border-b border-dashed border-gray-400 pb-4">
+            <p class="text-center font-bold text-sm mb-6 uppercase tracking-widest border-y border-black py-1" style="color: black !important;">Client Ledger Statement</p>
+            
+            <div class="mb-8 flex justify-between items-end border-b border-dashed border-gray-400 pb-4" style="color: black !important;">
                 <div>
                     <label class="text-[10px] font-bold text-gray-500 uppercase">Statement For:</label>
                     <p class="text-xl font-black">${client.printName}</p>
@@ -182,41 +256,47 @@ function openPrintPreview(type, data) {
                 </div>
                 <div class="text-right text-sm">
                     <p>Generated on: ${new Date().toLocaleDateString()}</p>
-                    <p class="font-bold text-lg mt-1">Status: <span class="${data.balance > 0 ? 'text-rose-601' : 'text-emerald-601'}">Balance ₹ ${data.balance.toLocaleString('en-IN')}</span></p>
+                    <p class="font-bold text-lg mt-1">Status: <span class="${data.balance > 0 ? 'text-rose-700' : 'text-emerald-700'}">Balance ₹ ${data.balance.toLocaleString('en-IN')}</span></p>
                 </div>
             </div>
-            <table class="w-full text-xs text-left border-collapse">
+            
+            <table class="w-full text-xs text-left border border-black" style="border-collapse: collapse; color: black !important;">
                 <thead>
-                    <tr class="border-y-2 border-black font-bold uppercase">
-                        <th class="py-3 px-2">Date</th>
-                        <th class="py-3 px-2">Particulars / Description</th>
-                        <th class="py-3 px-2 text-right">Debit (₹)</th>
-                        <th class="py-3 px-2 text-right">Credit (₹)</th>
-                        <th class="py-3 px-2 text-right">Balance</th>
+                    <tr class="border-b border-black font-bold uppercase">
+                        <th class="p-2" style="border-right: 1px solid black;">Date</th>
+                        <th class="p-2" style="border-right: 1px solid black;">Particulars / Description</th>
+                        <th class="p-2 text-right" style="border-right: 1px solid black;">Debit (₹)</th>
+                        <th class="p-2 text-right" style="border-right: 1px solid black;">Credit (₹)</th>
+                        <th class="p-2 text-right">Balance</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${data.rows.map(r => `
-                    <tr class="border-b border-gray-300 ${r.type === 'TOTAL' ? 'font-black bg-gray-50' : ''}">
-                        <td class="py-3 px-2">${r.date}</td>
-                        <td class="py-3 px-2">
+                    <tr style="border-bottom: 1px dashed black;" class="${r.type === 'TOTAL' ? 'font-black bg-gray-50' : ''}">
+                        <td class="p-2" style="border-right: 1px solid black;">${r.date}</td>
+                        <td class="p-2" style="border-right: 1px solid black;">
                            <div class="font-bold">${r.label}</div>
-                           <div class="text-[9px] text-gray-500">${r.ref || ''}</div>
+                           <div class="text-[9px] text-gray-600">${r.ref || ''}</div>
                         </td>
-                        <td class="py-3 px-2 text-right text-rose-700">${r.dr ? r.dr.toLocaleString('en-IN') : ''}</td>
-                        <td class="py-3 px-2 text-right text-emerald-700">${r.cr ? r.cr.toLocaleString('en-IN') : ''}</td>
-                        <td class="py-3 px-2 text-right font-bold">${r.bal.toLocaleString('en-IN')}</td>
+                        <td class="p-2 text-right" style="border-right: 1px solid black;">${r.dr ? r.dr.toLocaleString('en-IN') : ''}</td>
+                        <td class="p-2 text-right" style="border-right: 1px solid black;">${r.cr ? r.cr.toLocaleString('en-IN') : ''}</td>
+                        <td class="p-2 text-right font-bold">${r.bal.toLocaleString('en-IN')}</td>
                     </tr>`).join('')}
                 </tbody>
             </table>
-            <div class="mt-12 text-[10px] text-center text-gray-400">--- END OF STATEMENT ---</div>
+            <div class="mt-12 text-[10px] text-center text-gray-500 font-bold uppercase tracking-widest">--- END OF STATEMENT ---</div>
         </div>`;
     }
 
     content.innerHTML = html;
+
     setPrintLayout('a4', 'color');
     view.classList.add('active');
     document.getElementById('app-container').classList.add('hidden');
+
+    setTimeout(() => {
+        setPrintScale('100%');
+    }, 50);
 }
 
 // Global exports
@@ -224,4 +304,5 @@ window.reprintDoc = reprintDoc;
 window.printStatement = printStatement;
 window.closePrintView = closePrintView;
 window.setPrintLayout = setPrintLayout;
+window.setPrintScale = setPrintScale;
 window.openPrintPreview = openPrintPreview;

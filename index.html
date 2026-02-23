@@ -725,24 +725,39 @@
     </div>
 
     <!-- PRINT VIEW (Forced Light Mode visually by CSS classes on this container) -->
-    <div id="print-view" class="bg-slate-200 min-h-screen pb-10 text-black bg-white">
-        <div class="bg-slate-800 text-white p-4 sticky top-0 shadow-lg flex justify-between items-center no-print z-20">
-            <div><button onclick="closePrintView()"
-                    class="bg-slate-600 hover:bg-slate-500 px-4 py-2 rounded-lg text-sm font-semibold mr-4">←
-                    Back</button><button onclick="setPrintLayout('a4', 'color')"
-                    class="px-3 py-1.5 bg-slate-700 rounded-md text-xs border border-slate-600 hover:bg-slate-600">A4
-                    (Color)</button><button onclick="setPrintLayout('a4', 'bw')"
-                    class="px-3 py-1.5 bg-slate-700 rounded-md text-xs border border-slate-600 ml-1 hover:bg-slate-600">A4
-                    (B/W)</button><button onclick="setPrintLayout('thermal', 'bw')"
-                    class="px-3 py-1.5 bg-slate-700 rounded-md text-xs border border-slate-600 ml-1 hover:bg-slate-600">Thermal</button>
+    <div id="print-view" class="min-h-screen pb-10 text-black bg-white">
+        <div
+            class="bg-slate-800 text-white p-4 sticky top-0 shadow-lg flex flex-wrap justify-between items-center no-print z-20 gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="closePrintView()"
+                    class="bg-slate-600 hover:bg-slate-500 px-4 py-2 rounded-lg text-sm font-semibold mr-2">←
+                    Back</button>
+                <div class="border-l border-slate-600 pl-3 flex gap-1">
+                    <button onclick="setPrintLayout('a4')"
+                        class="px-3 py-1.5 bg-slate-700 rounded-md text-xs border border-slate-600 hover:bg-slate-600">A4
+                        Full</button><button onclick="setPrintLayout('thermal')"
+                        class="px-3 py-1.5 bg-slate-700 rounded-md text-xs border border-slate-600 ml-1 hover:bg-slate-600">Thermal</button>
+                </div>
+                <div class="border-l border-slate-600 pl-3 flex gap-1">
+                    <button onclick="setPrintScale('100%')"
+                        class="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-md text-xs border border-slate-600 hover:bg-slate-600 hidden md:inline-block">100%</button>
+                    <button onclick="setPrintScale('fit-width')"
+                        class="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-md text-xs border border-slate-600 hover:bg-slate-600">Fit
+                        Width</button>
+                    <button onclick="setPrintScale('fit-page')"
+                        class="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-md text-xs border border-slate-600 hover:bg-slate-600 md:hidden">Fit
+                        Page</button>
+                </div>
             </div>
             <button onclick="window.print()"
                 class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-6 py-2 rounded-lg font-bold shadow-md">PRINT
                 / PDF</button>
         </div>
         <div class="pt-8 no-print-pt">
-            <div class="print-scroll-wrapper">
-                <div id="print-content" class="preview-a4 bg-white relative text-black"></div>
+            <div class="print-scroll-wrapper print-scaling-wrapper">
+                <div id="print-scale-wrapper" class="print-scale-container">
+                    <div id="print-content" class="preview-a4 bg-white relative text-black"></div>
+                </div>
             </div>
         </div>
     </div>

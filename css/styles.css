@@ -1,5 +1,11 @@
 /* PRINT ENGINE - Strictly Black & White */
 @media print {
+    @page {
+        size: A4;
+        margin: 10mm;
+        /* Give the browser some breathing room */
+    }
+
     .no-print {
         display: none !important;
     }
@@ -22,9 +28,13 @@
     }
 
     body.print-a4 #print-content {
-        width: 210mm;
-        padding: 15mm;
-        margin: auto;
+        width: 100%;
+        /* Change from 210mm to 100% */
+        max-width: 190mm;
+        /* Ensures it stays within A4 printable area */
+        padding: 0;
+        margin: 0 auto;
+        /* Let it center within the 10mm page margin */
         font-size: 14px;
     }
 
@@ -88,7 +98,25 @@
     justify-content: center;
 }
 
+.print-scale-container {
+    transform: scale(var(--print-scale, 1));
+    transform-origin: top center;
+    transition: transform 0.2s ease-out;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.print-scaling-wrapper {
+    width: 100%;
+    overflow-x: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
 .preview-thermal {
+    width: 80mm;
     max-width: 80mm;
     background: white;
     padding: 5mm;
@@ -97,6 +125,8 @@
     font-family: 'Courier New', Courier, monospace;
     font-size: 11px;
     color: black;
+    overflow: hidden;
+    word-wrap: break-word;
 }
 
 .preview-thermal .thermal-hide {
