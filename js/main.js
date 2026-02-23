@@ -161,8 +161,13 @@ function showDetails(type, id) {
 
         modalFooter.innerHTML = `
             ${!isLocked ? `<button onclick="deleteQuote('${item.docId}')" class="text-rose-500 font-bold px-4 py-2 hover:bg-rose-50 rounded-lg">Delete</button>` : ''}
-            <button onclick="duplicateQuote('${item.docId}')" class="text-indigo-600 font-bold px-4 py-2 hover:bg-indigo-50 rounded-lg hidden md:block">Revise/Duplicate</button>
+            
+            ${isLocked ? `<button onclick="duplicateQuote('${item.docId}')" class="text-indigo-600 font-bold px-4 py-2 hover:bg-indigo-50 rounded-lg hidden md:block">Revise/Duplicate</button>` : ''}
+            
+            ${!isLocked ? `<button onclick="editDraftQuote('${item.docId}')" class="text-indigo-600 font-bold px-4 py-2 hover:bg-indigo-50 rounded-lg hidden md:block">Edit Draft</button>` : ''}
+
             <button onclick="reprintDoc('${item.docId}')" class="bg-primary-600 text-white px-6 py-2 rounded-xl">Print</button>
+            
             ${!isLocked
                 ? `<button onclick="lockQuote('${item.docId}')" class="bg-slate-800 text-white px-6 py-2 rounded-xl">Lock &amp; Finalize</button>`
                 : (!item.isConverted
@@ -299,9 +304,53 @@ function renderWEItemsTable() {
     let total = 0;
     tbody.innerHTML = draftWorkItems.map((it, idx) => {
         total += it.cost;
-        return `<tr><td class="p-3">${it.workDone}</td><td class="p-3 text-right">₹${it.cost}</td><td class="p-3 text-center"><button onclick="removeWorkSubItem(${idx})" class="text-rose-500 font-bold">×</button></td></tr>`;
+        return `<tr>
+            <td class="p-3 align-middle">${it.workDone}</td>
+            <td class="p-3 text-right align-middle">₹${it.cost}</td>
+            <td class="p-3 text-center align-middle">
+                <div class="flex items-center justify-center gap-3 text-lg">
+                    <button onclick="editWorkSubItem(${idx})" class="text-primary-500 hover:text-primary-700" title="Edit Item">✎</button>
+                    <button onclick="removeWorkSubItem(${idx})" class="text-rose-500 hover:text-rose-700 font-bold" title="Remove Item">×</button>
+                </div>
+            </td>
+        </tr>`;
     }).join('');
     document.getElementById('we-draft-total').innerText = total.toFixed(2);
+}
+
+function editWorkSubItem(idx) {
+    const item = draftWorkItems[idx];
+    let desc = item.workDone;
+    let cost = item.cost;
+    let qty = 1;
+
+    // Check if the description ends with a quantity modifier (e.g., " #3")
+    const match = desc.match(/(.+)\s+#(\d+)$/);
+    if (match) {
+        desc = match[1]; // The base description without the #
+        qty = parseInt(match[2], 10); // The number after the #
+        cost = cost / qty; // Restore the original unit cost
+    }
+
+    // Pull the parsed data back into the inputs
+    document.getElementById('we-work').value = desc;
+    document.getElementById('we-cost').value = cost;
+
+    // Manage the Qty toggle and input box
+    const toggle = document.getElementById('we-qty-toggle');
+    if (toggle) {
+        if (qty > 1) {
+            toggle.checked = true;
+            document.getElementById('we-qty').value = qty;
+        } else {
+            toggle.checked = false;
+            document.getElementById('we-qty').value = 1;
+        }
+        toggleWeQty(); // Trigger UI layout changes
+    }
+
+    // Remove it from the table so it can be re-added
+    removeWorkSubItem(idx);
 }
 
 function saveWorkEntry() {
@@ -567,11 +616,12 @@ function deleteInvoice(id) {
 // --- TAB 3: QUOTATIONS ---
 function openQuoteModal() {
     draftQuoteItems = [];
+    document.getElementById('quote-edit-id').value = ''; // Clear edit tracker
+    document.getElementById('modal-quote-title').innerText = "Create Quotation";
     document.getElementById('quote-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('quote-client').value = '';
     document.getElementById('quote-vehicle').value = '';
 
-    // Reset the Qty toggle
     const toggle = document.getElementById('quote-qty-toggle');
     if (toggle) { toggle.checked = false; toggleQuoteQty(); }
 
@@ -611,31 +661,86 @@ function removeQuoteItem(idx) {
 
 function renderQuoteDraftTable() {
     const tbody = document.getElementById('quote-draft-tbody');
-    tbody.innerHTML = draftQuoteItems.map((it, idx) => `<tr><td class="p-3">
-       <div class="text-[10px] text-slate-400 font-bold">${it.vehicle}</div>
-       <div>${it.workDone}</div>
-    </td><td class="p-3 text-right font-bold">₹${it.cost}</td><td class="p-3 text-center"><button onclick="removeQuoteItem(${idx})" class="text-rose-500">×</button></td></tr>`).join('');
+    tbody.innerHTML = draftQuoteItems.map((it, idx) => `<tr>
+        <td class="p-3 align-middle">
+           <div class="text-[10px] text-slate-400 font-bold">${it.vehicle}</div>
+           <div>${it.workDone}</div>
+        </td>
+        <td class="p-3 text-right font-bold align-middle">₹${it.cost}</td>
+        <td class="p-3 text-center align-middle">
+            <div class="flex items-center justify-center gap-3 text-lg">
+                <button onclick="editQuoteItem(${idx})" class="text-indigo-500 hover:text-indigo-700" title="Edit Item">✎</button>
+                <button onclick="removeQuoteItem(${idx})" class="text-rose-500 hover:text-rose-700 font-bold" title="Remove Item">×</button>
+            </div>
+        </td>
+    </tr>`).join('');
+}
+
+function editQuoteItem(idx) {
+    const item = draftQuoteItems[idx];
+    let desc = item.workDone;
+    let cost = item.cost;
+    let qty = 1;
+
+    // Check if the description ends with a quantity modifier (e.g., " #3")
+    const match = desc.match(/(.+)\s+#(\d+)$/);
+    if (match) {
+        desc = match[1];
+        qty = parseInt(match[2], 10);
+        cost = cost / qty;
+    }
+
+    // Pull the parsed data back into the inputs
+    document.getElementById('quote-item-desc').value = desc;
+    document.getElementById('quote-item-cost').value = cost;
+    document.getElementById('quote-vehicle').value = item.vehicle;
+
+    // Manage the Qty toggle and input box
+    const toggle = document.getElementById('quote-qty-toggle');
+    if (toggle) {
+        if (qty > 1) {
+            toggle.checked = true;
+            document.getElementById('quote-qty').value = qty;
+        } else {
+            toggle.checked = false;
+            document.getElementById('quote-qty').value = 1;
+        }
+        toggleQuoteQty(); // Trigger UI layout changes
+    }
+
+    // Remove it from the table so it can be re-added
+    removeQuoteItem(idx);
 }
 
 function generateQuote() {
     const date = document.getElementById('quote-date').value;
     const clientName = document.getElementById('quote-client').value;
     const clientId = getClientIdByName(clientName);
+    const editId = document.getElementById('quote-edit-id').value; // Check for edit
+
     if (!clientId || draftQuoteItems.length === 0) return alert("Required data missing");
 
     const tax = draftQuoteItems.reduce((acc, it) => acc + it.cost, 0);
-    const docData = {
-        docId: 'DOC-Q' + Date.now(),
-        type: 'QUOTATION',
-        docNumber: 'DRAFT', // Saves as draft initially
-        status: 'DRAFT',    // New status field
-        clientId,
-        date,
-        lineItems: [...draftQuoteItems],
-        taxable: tax, cgst: 0, sgst: 0, grandTotal: tax,
-        isConverted: false
-    };
-    appDB.documents.push(docData);
+
+    let docData;
+    if (editId) {
+        // UPDATE EXISTING DRAFT
+        const idx = appDB.documents.findIndex(d => d.docId === editId);
+        docData = appDB.documents[idx];
+        docData.clientId = clientId;
+        docData.date = date;
+        docData.lineItems = [...draftQuoteItems];
+        docData.taxable = tax;
+        docData.grandTotal = tax;
+    } else {
+        // CREATE NEW DRAFT
+        docData = {
+            docId: 'DOC-Q' + Date.now(), type: 'QUOTATION', docNumber: 'DRAFT', status: 'DRAFT',
+            clientId, date, lineItems: [...draftQuoteItems], taxable: tax, cgst: 0, sgst: 0, grandTotal: tax, isConverted: false
+        };
+        appDB.documents.push(docData);
+    }
+
     saveDB(); refreshUI(); closeAllModals();
     openPrintPreview('QUOTATION', docData);
 }
@@ -665,6 +770,26 @@ function lockQuote(id) {
     saveDB(); refreshUI(); closeAllModals();
 }
 
+function editDraftQuote(id) {
+    const q = appDB.documents.find(doc => doc.docId === id);
+    if (!q || q.status === 'LOCKED') return; // Safety check
+
+    closeAllModals();
+    openQuoteModal();
+
+    // Set up the modal for editing
+    document.getElementById('quote-edit-id').value = q.docId;
+    document.getElementById('modal-quote-title').innerText = "Edit Draft Quotation";
+
+    const client = getClientById(q.clientId);
+    document.getElementById('quote-date').value = q.date;
+    document.getElementById('quote-client').value = client.shortName;
+    document.getElementById('quote-vehicle').value = q.lineItems[0] ? q.lineItems[0].vehicle : '';
+
+    draftQuoteItems = JSON.parse(JSON.stringify(q.lineItems));
+    renderQuoteDraftTable();
+}
+
 function duplicateQuote(id) {
     const q = appDB.documents.find(doc => doc.docId === id);
     if (!q) return;
@@ -672,12 +797,14 @@ function duplicateQuote(id) {
     closeAllModals();
     openQuoteModal();
 
-    // Pre-fill the modal with the old quote's data
+    // Set up modal for a completely new quote based on old data
+    document.getElementById('quote-edit-id').value = ''; // MUST be empty to save as new
+    document.getElementById('modal-quote-title').innerText = "Revise Quotation (New Draft)";
+
     const client = getClientById(q.clientId);
     document.getElementById('quote-client').value = client.shortName;
     document.getElementById('quote-vehicle').value = q.lineItems[0] ? q.lineItems[0].vehicle : '';
 
-    // Deep copy the items so we don't accidentally edit the locked quote in memory
     draftQuoteItems = JSON.parse(JSON.stringify(q.lineItems));
     renderQuoteDraftTable();
 }
@@ -735,7 +862,8 @@ function renderQuotes() {
 
         const opt = [
             { label: 'Print View', onClick: `reprintDoc('${q.docId}')`, classes: 'text-primary-600' },
-            { label: 'Revise / Duplicate', onClick: `duplicateQuote('${q.docId}')`, classes: 'text-indigo-600' },
+            ...(isLocked ? [{ label: 'Revise / Duplicate', onClick: `duplicateQuote('${q.docId}')`, classes: 'text-indigo-600' }] : []),
+            ...(!isLocked ? [{ label: 'Edit Draft', onClick: `editDraftQuote('${q.docId}')`, classes: 'text-indigo-600' }] : []),
             ...(!isLocked ? [{ label: 'Lock & Finalize', onClick: `lockQuote('${q.docId}')`, classes: 'text-emerald-600' }] : []),
             ...(!isLocked ? [{ label: 'Delete Draft', onClick: `deleteQuote('${q.docId}')`, classes: 'text-rose-600' }] : [])
         ];
@@ -1013,3 +1141,6 @@ window.saveClient = saveClient;
 window.renderClients = renderClients;
 window.editClient = editClient;
 window.archiveClient = archiveClient;
+window.editWorkSubItem = editWorkSubItem;
+window.editQuoteItem = editQuoteItem;
+window.editDraftQuote = editDraftQuote;
