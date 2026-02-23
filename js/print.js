@@ -26,6 +26,8 @@ function printStatement() {
 function closePrintView() {
     document.getElementById('print-view').classList.remove('active');
     document.getElementById('app-container').classList.remove('hidden');
+    // Safely remove print flags without destroying the app's base theme classes
+    document.body.classList.remove('print-a4', 'print-thermal');
 }
 
 function setPrintLayout(mode) {
@@ -42,12 +44,14 @@ function setPrintLayout(mode) {
 
     if (mode === 'thermal') {
         container.className = 'preview-thermal bg-white relative text-black mx-auto print:mx-0 print:w-full print:shadow-none';
-        document.body.className = 'print-thermal';
+        document.body.classList.remove('print-a4');
+        document.body.classList.add('print-thermal');
         if (a4View) a4View.style.display = 'none';
         if (thermalView) thermalView.style.display = 'block';
     } else {
         container.className = 'preview-a4 bg-white relative text-black mx-auto print:mx-0 print:w-full print:shadow-none print:p-0';
-        document.body.className = 'print-a4';
+        document.body.classList.remove('print-thermal');
+        document.body.classList.add('print-a4');
         if (a4View) a4View.style.display = 'block';
         if (thermalView) thermalView.style.display = 'none';
     }
@@ -104,9 +108,6 @@ function openPrintPreview(type, data) {
 
     // Ensure Modals are closed so they don't bleed into the physical print
     if (window.closeAllModals) window.closeAllModals();
-
-    view.classList.remove('bg-white', 'text-black');
-    view.classList.add('bg-slate-100', 'dark:bg-slate-950');
 
     let html = '';
     const client = appDB.clients.find(c => c.clientId === data.clientId) || { printName: 'Unknown Client', address: '', gstin: '' };
