@@ -17,12 +17,18 @@ async function initApp() {
     if (!appDB.clients || appDB.clients.length === 0) {
         try {
             const res = await fetch('data/clients.json');
-            const data = await res.json();
-            appDB.clients = data.map(c => ({ clientId: 'C-' + Date.now() + Math.random(), ...c }));
-            saveDB();
+            if (res.ok) {
+                const data = await res.json();
+                appDB.clients = data.map(c => ({ clientId: 'C-' + Date.now() + Math.random(), ...c }));
+            } else {
+                throw new Error("HTTP " + res.status);
+            }
         } catch (err) {
-            console.error('Failed to load external clients data:', err);
+            console.warn('Failed to load external clients data (likely file:// CORS limit). Using fallback.', err);
+            const fallbackData = [{"shortName":"Reliable","printName":"RELIABLE SERVICES","address":"Pune","gstin":"27AABFR5034L1Z3"},{"shortName":"Maitreya","printName":"MAITREYA TRANS SOLUTIONS","address":"Moshi","gstin":"27AAUFM0399N1ZB"},{"shortName":"Sant Krupa","printName":"SANT KRUPA TRAVELS","address":"Haveli","gstin":"27AMTPP3639H1ZF"},{"shortName":"Kamavida","printName":"KAM-AVIDA ENVIRO","address":"Pune","gstin":"27AABCK2355G1ZP"},{"shortName":"Tej Travels","printName":"TEJ TRAVELS","address":"Mumbai","gstin":""}];
+            appDB.clients = fallbackData.map(c => ({ clientId: 'C-' + Date.now() + Math.random(), ...c }));
         }
+        saveDB();
     }
 
     const today = new Date().toISOString().split('T')[0];

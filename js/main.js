@@ -111,13 +111,13 @@ function showDetails(type, id) {
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">CLIENT</span><span class="font-bold">${client.shortName}</span></div>
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">VEHICLE</span><span class="font-bold uppercase">${item.lineItems[0] ? item.lineItems[0].vehicle : '--'}</span></div>
            <div class="flex justify-between border-b pb-2"><span class="text-xs font-bold text-slate-400">TOTAL</span><span class="font-black">₹${item.grandTotal}</span></div>
-           ${item.isConverted && item.linkedDocId ? `
+           ${item.isConverted && (item.linkedEntryId || item.linkedDocId) ? `
              <div class="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl mt-4 border border-emerald-100 dark:border-emerald-800">
                <div>
                  <p class="text-[10px] font-bold text-emerald-500 uppercase">Converted To</p>
-                 <p class="font-bold text-sm text-emerald-700 dark:text-emerald-400">${appDB.documents.find(d => d.docId === item.linkedDocId)?.docNumber || 'Invoice'}</p>
+                 <p class="font-bold text-sm text-emerald-700 dark:text-emerald-400">${item.linkedDocId ? (appDB.documents.find(d => d.docId === item.linkedDocId)?.docNumber || 'Invoice') : 'Work Entry'}</p>
                </div>
-               <button onclick="openLinkedDoc('INV', '${item.linkedDocId}')" class="text-xs font-bold bg-white dark:bg-emerald-800 text-emerald-600 dark:text-white px-3 py-1.5 rounded-lg shadow-sm">View &rarr;</button>
+               <button onclick="openLinkedDoc('${item.linkedDocId ? 'INV' : 'WE'}', '${item.linkedDocId || item.linkedEntryId}')" class="text-xs font-bold bg-white dark:bg-emerald-800 text-emerald-600 dark:text-white px-3 py-1.5 rounded-lg shadow-sm">View &rarr;</button>
              </div>
            ` : ''}
         </div>`;
@@ -125,7 +125,7 @@ function showDetails(type, id) {
             <button onclick="deleteQuote('${item.docId}')" class="text-rose-500 font-bold px-4 py-2 hover:bg-rose-50 rounded-lg">Delete</button>
             <button onclick="reprintDoc('${item.docId}')" class="bg-primary-600 text-white px-6 py-2 rounded-xl">Print</button>
             ${!item.isConverted
-                ? `<button onclick="convertQuoteToInvoice('${item.docId}')" class="bg-emerald-600 text-white px-6 py-2 rounded-xl shadow-md">Convert to Invoice</button>`
+                ? `<button onclick="convertQuoteToWorkEntry('${item.docId}')" class="bg-emerald-600 text-white px-6 py-2 rounded-xl shadow-md">Add to Work Entries</button>`
                 : `<span class="bg-emerald-100 text-emerald-700 font-bold px-6 py-2 rounded-xl flex items-center gap-2"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg> Converted</span>`
             }
         `;
@@ -552,38 +552,47 @@ function generateQuote() {
     openPrintPreview('QUOTATION', docData);
 }
 
-function convertQuoteToInvoice(quoteId) {
+function convertQuoteToWorkEntry(quoteId) {
     const quote = appDB.documents.find(d => d.docId === quoteId);
     if (!quote || quote.isConverted) return;
     
-    // Create new Invoice based on quote
-    const newDocId = 'DOC-' + Date.now();
-    const invoice = {
-        docId: newDocId,
-        type: 'INVOICE',
-        docNumber: 'DRAFT',
-        clientId: quote.clientId,
-        date: new Date().toISOString().split('T')[0],
-        status: 'DRAFT',
-        isTaxable: true,
-        lineItems: JSON.parse(JSON.stringify(quote.lineItems)), // Deep copy items
-        taxable: quote.taxable,
-        cgst: quote.taxable * 0.09,
-        sgst: quote.taxable * 0.09,
-        grandTotal: quote.taxable * 1.18,
-        linkedQuoteId: quote.docId
-    };
+    // Group line items by vehicle
+    const vehicleGroups = {};
+    quote.lineItems.forEach(it => {
+        const v = it.vehicle || 'UNKNOWN';
+        if (!vehicleGroups[v]) vehicleGroups[v] = [];
+        vehicleGroups[v].push({ workDone: it.workDone, cost: it.cost });
+    });
     
-    appDB.documents.push(invoice);
+    let firstNewEntryId = null;
+    const dateStr = new Date().toISOString().split('T')[0];
     
-    // Update original quote to mark it converted
+    Object.keys(vehicleGroups).forEach((v, index) => {
+        const items = vehicleGroups[v];
+        const total = items.reduce((sum, i) => sum + i.cost, 0);
+        const newEntryId = 'WE-' + Date.now() + '-' + index;
+        if (!firstNewEntryId) firstNewEntryId = newEntryId;
+        
+        appDB.work_entries.push({
+            entryId: newEntryId,
+            date: dateStr,
+            clientId: quote.clientId,
+            vehicle: v === 'UNKNOWN' ? '' : v,
+            items: items,
+            totalCost: total,
+            status: 'UNBILLED',
+            docId: null,
+            linkedQuoteId: quote.docId
+        });
+    });
+    
     quote.isConverted = true;
-    quote.linkedDocId = newDocId;
+    quote.linkedEntryId = firstNewEntryId;
     
     saveDB();
     refreshUI();
     closeAllModals();
-    switchTab('bills'); // Jump to invoices to see the new DRAFT
+    if (window.switchTab) window.switchTab('entries');
 }
 
 function renderQuotes() {
@@ -817,7 +826,7 @@ window.openQuoteModal = openQuoteModal;
 window.addQuoteItem = addQuoteItem;
 window.removeQuoteItem = removeQuoteItem;
 window.generateQuote = generateQuote;
-window.convertQuoteToInvoice = convertQuoteToInvoice;
+window.convertQuoteToWorkEntry = convertQuoteToWorkEntry;
 window.renderQuotes = renderQuotes;
 window.deleteQuote = deleteQuote;
 window.savePayment = savePayment;
