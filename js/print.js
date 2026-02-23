@@ -14,17 +14,20 @@ function closePrintView() {
     document.getElementById('app-container').classList.remove('hidden');
 }
 
-function setPrintLayout(mode) {
+function setPrintLayout(mode, colorMode = 'color') {
     const container = document.getElementById('print-content');
     if (!container) return;
     container.className = (mode === 'thermal') ? 'preview-thermal bg-white relative text-black mx-auto' : 'preview-a4 bg-white relative text-black mx-auto';
     document.body.className = (mode === 'thermal') ? 'print-thermal' : 'print-a4';
     
     // Update logo color based on mode
-    const logo = container.querySelector('.logo-box');
+    const logo = container.querySelector('img[alt="Mangala Logo"]');
     if (logo) {
-        logo.classList.remove('logo-blue', 'logo-black');
-        logo.classList.add(mode === 'thermal' ? 'logo-black' : 'logo-blue');
+        if (mode === 'thermal' || colorMode === 'bw') {
+            logo.classList.remove('filter-primary-blue');
+        } else {
+            logo.classList.add('filter-primary-blue');
+        }
     }
 }
 
@@ -211,7 +214,7 @@ function openPrintPreview(type, data) {
     }
 
     content.innerHTML = html;
-    setPrintLayout('a4');
+    setPrintLayout('a4', 'color');
     view.classList.add('active');
     document.getElementById('app-container').classList.add('hidden');
 }

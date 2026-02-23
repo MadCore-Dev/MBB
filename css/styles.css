@@ -109,26 +109,10 @@
     padding: 4px 0;
 }
 
-/* Dynamic Logo Masking */
-.logo-box {
-    width: 140px;
-    height: 140px;
-    mask-image: url('../assets/logo.png');
-    -webkit-mask-image: url('../assets/logo.png');
-    mask-size: contain;
-    -webkit-mask-size: contain;
-    mask-repeat: no-repeat;
-    -webkit-mask-repeat: no-repeat;
-    mask-position: center;
-    -webkit-mask-position: center;
-}
-
-.logo-blue {
-    background-color: #4f46e5;
-}
-
-.logo-black {
-    background-color: #000000;
+/* Dynamic Logo Coloring */
+/* Mathematically transforms solid black into Tailwind primary-600 (#2563eb) blue */
+.filter-primary-blue {
+    filter: invert(36%) sepia(87%) saturate(2462%) hue-rotate(210deg) brightness(97%) contrast(92%);
 }
 
 /* Modals & Custom Scrollbars */
