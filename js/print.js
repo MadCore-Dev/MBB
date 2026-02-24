@@ -692,16 +692,21 @@ function updatePageHeightDebugger() {
 
     if (isThermal) {
         const container = document.getElementById('print-content');
-        debugInput.value = `Therm: ${container.offsetHeight}`;
+        debugInput.value = `Therm: W:${container.offsetWidth} H:${container.offsetHeight}`;
         debugInput.classList.remove('text-rose-400');
         debugInput.classList.add('text-emerald-400');
     } else {
         const a4Pages = document.querySelectorAll('.a4-layout-container .preview-a4');
         if (a4Pages.length > 0) {
             const heights = Array.from(a4Pages).map(p => p.offsetHeight);
-            debugInput.value = heights.join(', ');
+            const widths = Array.from(a4Pages).map(p => p.offsetWidth);
 
-            if (heights.some(h => h > 1125)) {
+            // A4 pages should all have identical widths, grab the first one
+            const w = widths[0];
+            debugInput.value = `W:${w} | H:${heights.join(',')}`;
+
+            // Standard A4 at 96 DPI is 794px wide by 1123px tall
+            if (heights.some(h => h > 1125) || w > 800) {
                 debugInput.classList.remove('text-emerald-400');
                 debugInput.classList.add('text-rose-400', 'font-bold');
             } else {

@@ -1,14 +1,18 @@
 @media print {
     @page {
         size: A4;
-        margin: 10mm;
+        margin: 0mm;
     }
 
+    /* 1. COMPLETELY DESTROY FLEXBOX FOR PRINTING */
+    /* Browsers will ignore page breaks if elements are in a flex container */
     .print-scroll-wrapper,
     .print-scaling-wrapper,
     .print-scale-container,
-    #print-scale-wrapper {
+    #print-scale-wrapper,
+    .a4-layout-container {
         display: block !important;
+        /* Force standard block layout */
         overflow: visible !important;
         height: auto !important;
         transform: none !important;
@@ -18,18 +22,22 @@
     }
 
     .preview-a4 {
+        display: block !important;
+        position: relative !important;
         width: 100% !important;
-        min-width: auto !important;
-        max-width: 100% !important;
         height: auto !important;
-        min-height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
         margin: 0 !important;
+        /* THE FIX: Add internal padding so text doesn't touch the printer's hardware dead-zone */
+        padding: 2mm 15mm !important;
         box-shadow: none !important;
-        break-inside: avoid !important;
+
         break-after: page !important;
         page-break-after: always !important;
     }
 
+    /* 3. Prevent the printer from spitting out a blank sheet at the very end */
     .preview-a4:last-of-type {
         break-after: auto !important;
         page-break-after: auto !important;
