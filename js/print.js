@@ -225,7 +225,7 @@ function openPrintPreview(type, data) {
             pageDiv.style.minHeight = 'auto'; // Shrink-wrap mode for true pixel measurement
 
             const headerHtml = isFirst ? `
-                <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center justify-between mb-1 pt-8">
                     <div class="flex items-center justify-start w-1/4">
                         <img src="assets/logo.png" alt="MBB Logo" class="w-20 h-20 object-contain filter-primary-blue" style="filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;">
                     </div>
@@ -245,7 +245,7 @@ function openPrintPreview(type, data) {
                     Address : ${COMPANY_DETAILS.address}
                 </div>
             ` : `
-                <div class="flex justify-between items-end border-b-[1.5px] border-black pb-2 mb-4" style="color: black !important;">
+                <div class="flex justify-between items-end border-b-[1.5px] border-black pb-2 mb-4 pt-16" style="color: black !important;">
                     <div class="flex items-center gap-2">
                         <img src="assets/logo.png" alt="MBB Logo" class="h-8 w-8 object-contain filter-primary-blue" style="filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;">
                         <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 26px; color: #0033cc !important; line-height: 1; margin-bottom: 0;">${COMPANY_DETAILS.name}</h1>
@@ -337,7 +337,7 @@ function openPrintPreview(type, data) {
             sigs.innerHTML = isLastRow ? finalSignaturesHtml : contSignaturesHtml;
 
             // Height Check - Ensure we don't accidentally rip out the Header row (which is index 0)
-            if (currentPage.offsetHeight > 1120 && currentTbody.children.length > 2) {
+            if (currentPage.offsetHeight > 1200 && currentTbody.children.length > 2) {
                 // Overflow detected! Pull row back.
                 currentTbody.removeChild(tr);
                 sigs.innerHTML = contSignaturesHtml;
@@ -489,7 +489,7 @@ function openPrintPreview(type, data) {
             pageDiv.style.minHeight = 'auto';
 
             const headerHtml = isFirst ? `
-                <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center justify-between mb-1 pt-8">
                     <div class="flex items-center justify-start w-1/4">
                         <img src="assets/logo.png" alt="MBB Logo" class="w-20 h-20 object-contain filter-primary-blue" style="filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;">
                     </div>
@@ -508,7 +508,7 @@ function openPrintPreview(type, data) {
                     Address : ${COMPANY_DETAILS.address}
                 </div>
             ` : `
-                <div class="flex justify-between items-end border-b-[1.5px] border-black pb-2 mb-4" style="color: black !important;">
+                <div class="flex justify-between items-end border-b-[1.5px] border-black pb-2 mb-4 pt-16" style="color: black !important;">
                     <div class="flex items-center gap-2">
                         <img src="assets/logo.png" alt="MBB Logo" class="h-8 w-8 object-contain filter-primary-blue" style="filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;">
                         <h1 style="font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 26px; color: #0033cc !important; line-height: 1; margin-bottom: 0;">${COMPANY_DETAILS.name}</h1>
@@ -600,7 +600,7 @@ function openPrintPreview(type, data) {
             const sigs = currentPage.querySelector('.page-signatures');
             sigs.innerHTML = isLastRow ? stmtFooterHtml : stmtContHtml;
 
-            if (currentPage.offsetHeight > 1120 && currentTbody.children.length > 2) {
+            if (currentPage.offsetHeight > 1200 && currentTbody.children.length > 2) {
                 currentTbody.removeChild(tr);
                 sigs.innerHTML = stmtContHtml;
                 currentPage.style.minHeight = '297mm';
