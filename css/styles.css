@@ -1,9 +1,38 @@
-/* PRINT ENGINE - Strictly Black & White */
 @media print {
     @page {
         size: A4;
         margin: 10mm;
-        /* Give the browser some breathing room */
+    }
+
+    .print-scroll-wrapper,
+    .print-scaling-wrapper,
+    .print-scale-container,
+    #print-scale-wrapper {
+        display: block !important;
+        overflow: visible !important;
+        height: auto !important;
+        transform: none !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .preview-a4 {
+        width: 100% !important;
+        min-width: auto !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        break-inside: avoid !important;
+        break-after: page !important;
+        page-break-after: always !important;
+    }
+
+    .preview-a4:last-of-type {
+        break-after: auto !important;
+        page-break-after: auto !important;
     }
 
     .no-print {
@@ -33,12 +62,8 @@
 
     body.print-a4 #print-content {
         width: 100%;
-        /* Change from 210mm to 100% */
-        max-width: 190mm;
-        /* Ensures it stays within A4 printable area */
         padding: 0;
         margin: 0 auto;
-        /* Let it center within the 10mm page margin */
         font-size: 14px;
     }
 
@@ -93,7 +118,6 @@
     box-sizing: border-box;
 }
 
-/* Scroll Area for Print Preview on Mobile */
 .print-scroll-wrapper {
     width: 100%;
     overflow-x: auto;
@@ -143,13 +167,10 @@
     padding: 4px 0;
 }
 
-/* Dynamic Logo Coloring */
-/* Forces white to black, then transforms it into #0033cc blue */
 .filter-primary-blue {
     filter: brightness(0) saturate(100%) invert(15%) sepia(77%) saturate(6295%) hue-rotate(224deg) brightness(83%) contrast(107%) !important;
 }
 
-/* Modals & Custom Scrollbars */
 .modal-active {
     overflow: hidden;
 }

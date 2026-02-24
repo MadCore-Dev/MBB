@@ -109,6 +109,24 @@ function openPrintPreview(type, data) {
     view.classList.add('active');
     document.getElementById('app-container').classList.add('hidden');
 
+    // ==========================================
+    // BUG 1 FIX: WARM UP ENGINE ON FIRST LOAD
+    // ==========================================
+    if (!window.printEngineWarmedUp) {
+        const img = new Image();
+        img.src = 'assets/logo.png';
+        img.onload = img.onerror = () => { // Wait for logo to cache
+            document.fonts.ready.then(() => { // Wait for cursive fonts to cache
+                setTimeout(() => { // Give DOM 150ms to paint the flexboxes
+                    window.printEngineWarmedUp = true;
+                    openPrintPreview(type, data); // Restart function safely
+                }, 150);
+            });
+        };
+        return; // Stop execution and wait
+    }
+    // ==========================================
+
     const wrapper = document.getElementById('print-scale-wrapper');
     if (wrapper) {
         wrapper.style.transform = 'scale(1)';
