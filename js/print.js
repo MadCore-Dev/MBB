@@ -337,7 +337,7 @@ function openPrintPreview(type, data) {
             sigs.innerHTML = isLastRow ? finalSignaturesHtml : contSignaturesHtml;
 
             // Height Check - Ensure we don't accidentally rip out the Header row (which is index 0)
-            if (currentPage.offsetHeight > 1200 && currentTbody.children.length > 2) {
+            if (currentPage.offsetHeight > 1150 && currentTbody.children.length > 2) {
                 // Overflow detected! Pull row back.
                 currentTbody.removeChild(tr);
                 sigs.innerHTML = contSignaturesHtml;
@@ -600,7 +600,7 @@ function openPrintPreview(type, data) {
             const sigs = currentPage.querySelector('.page-signatures');
             sigs.innerHTML = isLastRow ? stmtFooterHtml : stmtContHtml;
 
-            if (currentPage.offsetHeight > 1200 && currentTbody.children.length > 2) {
+            if (currentPage.offsetHeight > 1150 && currentTbody.children.length > 2) {
                 currentTbody.removeChild(tr);
                 sigs.innerHTML = stmtContHtml;
                 currentPage.style.minHeight = '297mm';
